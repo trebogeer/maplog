@@ -6,13 +6,7 @@ package com.shc.obu.dude;
  *         Time: 11:15 AM
  */
 
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -450,7 +444,7 @@ public class DictZip {
     }
 
 
-    static final class ByteArrayWrapper {
+    static final class ByteArrayWrapper implements Serializable {
         private final byte[] data;
 
         public ByteArrayWrapper(byte[] data) {
