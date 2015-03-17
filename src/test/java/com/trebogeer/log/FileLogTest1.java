@@ -3,6 +3,7 @@ package com.trebogeer.log;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 
 /**
  * @author dimav
@@ -21,7 +22,7 @@ public class FileLogTest1 {
 
         try (FileLog fileLog = new FileLog("dude-ext-id", new FileLogConfig())) {
             fileLog.open();
-            for (int ii = 0; ii < 1; ii++) {
+            for (int ii = 2; ii < 3; ii++) {
                 long start = System.currentTimeMillis();
                 for (int i = 0; i < 300/*000000*/; i++) {
                     String rs = "proxy_asset1/proxy/img/mp/00/00/00/c0/10725c0a63189f34f66c67eb8660e625.img.v1";
@@ -36,7 +37,7 @@ public class FileLogTest1 {
                     bb.put(data);
 
                     bb.rewind();
-                   // fileLog.appendEntry(bb, (ii + 1) * i);
+                    fileLog.appendEntry(bb, longToBytes((ii + 1) * i));
 
                 }
 
@@ -45,6 +46,20 @@ public class FileLogTest1 {
         } catch (IOException e) {
             System.out.println(e.getMessage());
         }
+    }
+
+
+    public static byte[] longToBytes(long l) {
+        ArrayList<Byte> bytes = new ArrayList<Byte>();
+        while (l != 0) {
+            bytes.add((byte) (l % (0xff + 1)));
+            l = l >> 8;
+        }
+        byte[] bytesp = new byte[bytes.size()];
+        for (int i = bytes.size() - 1, j = 0; i >= 0; i--, j++) {
+            bytesp[j] = bytes.get(i);
+        }
+        return bytesp;
     }
 
 }

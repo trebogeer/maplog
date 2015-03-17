@@ -1,5 +1,8 @@
 package com.trebogeer.log;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -7,13 +10,17 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
 
+
 /**
  * @author dimav
  *         Date: 3/16/15
  *         Time: 12:41 PM
  */
-public class FileSegment extends AbstractSegment {
+public class FileSegment extends AbstractSegment<FileSegment.Value> {
 
+    private static final Logger logger = LoggerFactory.getLogger(FileSegment.class);
+
+    private static final int INDEX_ENTRY_SIZE = 20;
 
     private final FileLog log;
     private final File logFile;
@@ -22,11 +29,22 @@ public class FileSegment extends AbstractSegment {
     private long timestamp;
     private FileChannel logFileChannel;
     private FileChannel indexFileChannel;
-    // private Long firstIndex;
-    // private Long lastIndex;
     private boolean isEmpty = true;
-    private long index;
-    private final ByteBuffer indexBuffer = ByteBuffer.allocate(8);
+    private final ThreadLocal<ByteBuffer> indexBuffer = new ThreadLocal<ByteBuffer>() {
+
+        @Override
+        protected ByteBuffer initialValue() {
+            // TODO make size configurable
+            return ByteBuffer.allocate(INDEX_ENTRY_SIZE);
+        }
+
+        @Override
+        public ByteBuffer get() {
+            ByteBuffer bb = super.get();
+            bb.rewind();
+            return bb;
+        }
+    };
 
     FileSegment(FileLog log, long id) {
         super(id);
@@ -73,11 +91,22 @@ public class FileSegment extends AbstractSegment {
         logFileChannel = FileChannel.open(this.logFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
         logFileChannel.position(logFileChannel.size());
         indexFileChannel = FileChannel.open(this.indexFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
-        indexFileChannel.position(indexFileChannel.size());
+        long indexFileSize = indexFileChannel.size();
+        if (indexFileSize != 0) {
+            long start = System.currentTimeMillis();
+            ByteBuffer b = indexBuffer.get();
+            byte[] key = new byte[INDEX_ENTRY_SIZE - 12];
+            while (indexFileChannel.read(b) != -1) {
+                b.flip();
+                b.get(key);
+                memIndex.put(new ByteArrayWrapper(key), new Value(b.getLong(), b.getInt()));
+                b.rewind();
+            }
+            logger.info("Loaded segment {} index in memory. Elapsed time millis : {}", id(), start - System.currentTimeMillis());
+        }
+        indexFileChannel.position(indexFileSize);
 
-        if (indexFileChannel.size() > 0) {
-//            firstIndex = super.firstIndex;
-//            lastIndex = firstIndex + indexFileChannel.size() / 8 - 1;
+        if (indexFileSize > 0) {
             isEmpty = false;
         }
     }
@@ -85,7 +114,6 @@ public class FileSegment extends AbstractSegment {
     @Override
     public boolean isEmpty() {
         assertIsOpen();
-        // return firstIndex == null;
         return isEmpty;
     }
 
@@ -100,7 +128,7 @@ public class FileSegment extends AbstractSegment {
         try {
             return logFileChannel.size();
         } catch (IOException e) {
-            throw new LogException("error opening file channel", e);
+            throw new LogException("error retrieving size from file channel", e);
         }
     }
 
@@ -112,7 +140,7 @@ public class FileSegment extends AbstractSegment {
             entry.rewind();
             long position = logFileChannel.position();
             logFileChannel.write(entry);
-            storePosition(index, position);
+            storePosition(index, position, entry.limit());
             isEmpty = false;
         } catch (IOException e) {
             throw new LogException("error appending entry", e);
@@ -123,54 +151,40 @@ public class FileSegment extends AbstractSegment {
     /**
      * Stores the position of an entry in the log.
      */
-    private void storePosition(byte[] index, long position) {
-//        try {
-//            ByteBuffer buffer = ByteBuffer.allocate(8).putLong(position);
-//            buffer.flip();
-//            indexFileChannel.write(buffer, (index - firstIndex) * 8);
-//        } catch (IOException e) {
-//            throw new LogException("error storing position", e);
-//        }
+    private void storePosition(byte[] index, long position, int offset) {
+        try {
+            ByteBuffer buffer = indexBuffer.get()
+                    .putLong(position).putLong(MurMur3.MurmurHash3_x64_64(index, 127)).putInt(offset);
+            buffer.flip();
+            indexFileChannel.write(buffer);
+        } catch (IOException e) {
+            throw new LogException("error storing position", e);
+        }
     }
 
 
     /**
      * Finds the position of the given index in the segment.
      */
-    private long findPosition(long index) {
-//        try {
-//            if (firstIndex == null || index <= firstIndex) {
-//                return 0;
-//            } else if (lastIndex == null || index > lastIndex) {
-//                return logFileChannel.size();
-//            }
-//            indexFileChannel.read(indexBuffer, (index - firstIndex) * 8);
-//            indexBuffer.flip();
-//            long position = indexBuffer.getLong();
-//            indexBuffer.clear();
-//            return position;
-//        } catch (IOException e) {
-//            throw new LogException("error finding position", e);
-//        }
-        return 0l;
+    private Value findPosition(byte[] index) {
+        return memIndex.get(new ByteArrayWrapper(index));
     }
 
 
     @Override
     public ByteBuffer getEntry(byte[] index) {
         assertIsOpen();
-        return null;
-//        assertContainsIndex(index);
-//        try {
-//            long startPosition = findPosition(index);
-//            long endPosition = findPosition(index + 1);
-//            ByteBuffer buffer = ByteBuffer.allocate((int) (endPosition - startPosition));
-//            logFileChannel.read(buffer, startPosition);
-//            buffer.flip();
-//            return buffer;
-//        } catch (IOException e) {
-//            throw new LogException("error retrieving entry", e);
-//        }
+        try {
+            Value v = findPosition(index);
+            if (v == null)
+                return null;
+            ByteBuffer buffer = ByteBuffer.allocate(v.offset);
+            logFileChannel.read(buffer, v.position);
+            buffer.flip();
+            return buffer;
+        } catch (IOException e) {
+            throw new LogException("error retrieving entry", e);
+        }
     }
 
 
@@ -203,6 +217,16 @@ public class FileSegment extends AbstractSegment {
         logFile.delete();
         indexFile.delete();
         metadataFile.delete();
+    }
+
+    static final class Value {
+        final long position;
+        final int offset;
+
+        public Value(long position, int offset) {
+            this.position = position;
+            this.offset = offset;
+        }
     }
 
 

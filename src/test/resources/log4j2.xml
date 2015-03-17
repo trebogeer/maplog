@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="debug" name="JLOG">
+    <Properties>
+        <Property name="filename">/tmp/jlog.log</Property>
+    </Properties>
+    <!--<ThresholdFilter level="debug"/>-->
+
+    <Appenders>
+        <!-- Async Loggers will auto-flush in batches, so switch off immediateFlush. -->
+        <RollingRandomAccessFile name="JLOG" fileName="/tmp/jlog.log" immediateFlush="false" append="false"
+                                 filePattern="/tmp/jlog.log.%d{yyyy-MM-dd-HH}">
+            <PatternLayout>
+                <Pattern>%d [%t] %p [M: %marker] %c{5} %m %ex%n</Pattern>
+                <!--<Pattern>%-40(%d{ISO8601} [%thread]) %-5level [M: %marker] %-47.47logger{45} :%X{host}%X{message}: %msg%n</Pattern>-->
+            </PatternLayout>
+            <Policies>
+                <TimeBasedTriggeringPolicy />
+                <!--<SizeBasedTriggeringPolicy size="4 GB"/>-->
+            </Policies>
+            <!--<DefaultRolloverStrategy max="20"/>-->
+        </RollingRandomAccessFile>
+    </Appenders>
+    <Loggers>
+        <Root level="info" includeLocation="false">
+            <AppenderRef ref="JLOG"/>
+        </Root>
+    </Loggers>
+</Configuration>

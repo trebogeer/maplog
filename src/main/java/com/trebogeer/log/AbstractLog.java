@@ -44,10 +44,9 @@ public abstract class AbstractLog implements Loggable, Log {
      * Creates a new log segment.
      *
      * @param segmentId  The log segment id.
-     * @param firstIndex The index at which the segment starts.
      * @return A new log segment.
      */
-    protected abstract Segment createSegment(long segmentId, long firstIndex);
+    protected abstract Segment createSegment(long segmentId);
 
     /**
      * Returns a collection of log segments.
@@ -202,7 +201,7 @@ public abstract class AbstractLog implements Loggable, Log {
             currentSegment.flush();
         }
 
-        currentSegment = createSegment(++nextSegmentId, index);
+        currentSegment = createSegment(++nextSegmentId);
         logger.debug("Rolling over to new segment at new index {}", index);
 
         // Open the new segment.
@@ -276,7 +275,7 @@ public abstract class AbstractLog implements Loggable, Log {
      * @throws IOException If the segment could not be opened.
      */
     private void createInitialSegment() throws IOException {
-        currentSegment = createSegment(++nextSegmentId, 1);
+        currentSegment = createSegment(++nextSegmentId);
         currentSegment.open();
         segments.put((long) 1, currentSegment);
     }
