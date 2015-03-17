@@ -1,4 +1,4 @@
-package com.shc.obu.dude;
+package com.trebogeer.log;
 
 /**
  * @author dimav

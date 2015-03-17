@@ -1,4 +1,4 @@
-package com.shc.obu.dude;
+package com.trebogeer.log;
 
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
@@ -12,13 +12,12 @@ import java.util.concurrent.ConcurrentNavigableMap;
 public class MapDB {
     
     public static void main(String... args) {
-        DB db = DBMaker.newFileDB(new File("/tmp/file")).make();
+        DB db = DBMaker.newFileDB(new File(System.getProperty("user.home") + File.separator + "tmp" + File.separator)).make();
 
-        ConcurrentNavigableMap<DictZip.ByteArrayWrapper, Long> treeMap = db.getTreeMap("map");
+        ConcurrentNavigableMap<com.trebogeer.log.DictZip.ByteArrayWrapper, Long> treeMap = db.getTreeMap("map");
         treeMap.put(new DictZip.ByteArrayWrapper("key".getBytes()), 1L);
 
         db.commit();
         db.close();
-        
     }
 }
