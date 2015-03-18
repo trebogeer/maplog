@@ -1,6 +1,7 @@
 package com.trebogeer.log;
 
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 
 /**
  * @author dimav
@@ -29,6 +30,8 @@ public interface Segment extends Loggable, Serializable {
      * @return The segment timestamp.
      */
     long timestamp();
+
+    ByteBuffer getEntry(long pos, int offset);
 
 
 }

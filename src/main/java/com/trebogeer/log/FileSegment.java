@@ -55,7 +55,7 @@ public class FileSegment extends AbstractSegment {
     }
 
     @Override
-    public Log log() {
+    public Log<Long> log() {
         return log;
     }
 
@@ -100,11 +100,11 @@ public class FileSegment extends AbstractSegment {
             while (indexFileChannel.read(b) != -1) {
                 b.flip();
                 b.get(key);
-                memIndex.put(Utils.toLong(key), new Value(b.getLong(), b.getInt(), id()));
+                log().index().put(Utils.toLong(key), new Index.Value(b.getLong(), b.getInt(), id()));
                 b.rewind();
             }
             logger.info("Loaded segment {} index in memory. Elapsed time millis : {}, total number of entries so far : {}",
-                    id(), System.currentTimeMillis() - start, memIndex.size());
+                    id(), System.currentTimeMillis() - start, log().index().size());
         }
         indexFileChannel.position(indexFileSize);
 
@@ -155,8 +155,8 @@ public class FileSegment extends AbstractSegment {
      */
     private void storePosition(byte[] index, long position, int offset) {
         try {
-            ByteBuffer buffer = indexBuffer.get()
-                    .putLong(position).putLong(MurMur3.MurmurHash3_x64_64(index, 127)).putInt(offset);
+            ByteBuffer buffer = indexBuffer.get().
+                    putLong(MurMur3.MurmurHash3_x64_64(index, 127)).putLong(position).putInt(offset);
             buffer.flip();
             indexFileChannel.write(buffer);
         } catch (IOException e) {
@@ -168,8 +168,8 @@ public class FileSegment extends AbstractSegment {
     /**
      * Finds the position of the given index in the segment.
      */
-    private Value findPosition(byte[] index) {
-        return memIndex.get(MurMur3.MurmurHash3_x64_64(index, 127));
+    private Index.Value findPosition(byte[] index) {
+        return log().index().get(MurMur3.MurmurHash3_x64_64(index, 127));
     }
 
 
@@ -177,11 +177,24 @@ public class FileSegment extends AbstractSegment {
     public ByteBuffer getEntry(byte[] index) {
         assertIsOpen();
         try {
-            Value v = findPosition(index);
+            Index.Value v = findPosition(index);
             if (v == null)
                 return null;
             ByteBuffer buffer = ByteBuffer.allocate(v.offset);
             logFileChannel.read(buffer, v.position);
+            buffer.flip();
+            return buffer;
+        } catch (IOException e) {
+            throw new LogException("error retrieving entry", e);
+        }
+    }
+
+    @Override
+    public ByteBuffer getEntry(long position, int offset) {
+        assertIsOpen();
+        try {
+            ByteBuffer buffer = ByteBuffer.allocate(offset - 4);
+            logFileChannel.read(buffer, position + 4);
             buffer.flip();
             return buffer;
         } catch (IOException e) {

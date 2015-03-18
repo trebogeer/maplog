@@ -15,11 +15,12 @@ import java.util.TreeMap;
  *         Date: 3/16/15
  *         Time: 12:14 PM
  */
-public abstract class AbstractLog implements Loggable, Log {
+public abstract class AbstractLog implements Loggable, Log<Long> {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private LogConfig config;
     protected final TreeMap<Short, Segment> segments = new TreeMap<>();
+    protected final Index<Long> index = new ConcurrentHashMapIndex();
     protected Segment currentSegment;
     private short nextSegmentId;
     private long lastFlush;
@@ -34,6 +35,12 @@ public abstract class AbstractLog implements Loggable, Log {
         return config;
     }
 
+
+    @Override
+    public Index<Long> index() {
+        return index;
+    }
+
     /**
      * Loads all log segments.
      *
@@ -44,7 +51,7 @@ public abstract class AbstractLog implements Loggable, Log {
     /**
      * Creates a new log segment.
      *
-     * @param segmentId  The log segment id.
+     * @param segmentId The log segment id.
      * @return A new log segment.
      */
     protected abstract Segment createSegment(short segmentId);
@@ -179,15 +186,10 @@ public abstract class AbstractLog implements Loggable, Log {
      */
     @Override
     public ByteBuffer getEntry(byte[] index) {
-        // TODO
-        //FIXME retrieve correct entry from proper segment.
         assertIsOpen();
-        //currentSegment.
-        for (Map.Entry<Short, Segment> s : segments.entrySet()) {
-            ByteBuffer value;
-            if ((value = s.getValue().getEntry(index)) != null) {
-                return value;
-            }
+        Index.Value v = index().get(MurMur3.MurmurHash3_x64_64(index, 127));
+        if (v != null) {
+           return segment(v.segmentId).getEntry(v.position, v.offset);
         }
         return null;
     }
@@ -300,7 +302,7 @@ public abstract class AbstractLog implements Loggable, Log {
                 && System.currentTimeMillis() > currentSegment.timestamp() + config.getSegmentInterval();
 
         if (segmentSizeExceeded || segmentExpired) {
-            rollOver((short)(currentSegment.id() + 1));
+            rollOver((short) (currentSegment.id() + 1));
         }
     }
 

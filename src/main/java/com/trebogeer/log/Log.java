@@ -9,7 +9,7 @@ import java.util.TreeMap;
  *         Date: 3/16/15
  *         Time: 11:45 AM
  */
-public interface Log extends Serializable {
+public interface Log<K> extends Serializable {
 
     /**
      * Returns the log configuration.
@@ -65,5 +65,7 @@ public interface Log extends Serializable {
      * @throws IOException               If the log failed to delete a segment.
      */
     void compact(short index) throws IOException;
+
+    Index<K> index();
 
 }
