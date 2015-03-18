@@ -29,13 +29,13 @@ public class FileLog extends AbstractLog {
 
     @Override
     protected Collection<Segment> loadSegments() {
-        Map<Long, Segment> segments = new HashMap<>();
+        Map<Short, Segment> segments = new HashMap<>();
         base.getAbsoluteFile().getParentFile().mkdirs();
         logger.info("Logging data to [{}]", name);
         for (File file : config.getDirectory().listFiles(File::isFile)) {
             if (file.getName().startsWith(base.getName() + "-") && file.getName().endsWith(".metadata")) {
                 String st = file.getName().substring(file.getName().lastIndexOf('-') + 1);
-                long id = Long.valueOf(st.substring(0, st.lastIndexOf('.')));
+                short id = Short.valueOf(st.substring(0, st.lastIndexOf('.')));
                 if (!segments.containsKey(id)) {
                     segments.put(id, new FileSegment(this, id));
                 }
@@ -45,7 +45,7 @@ public class FileLog extends AbstractLog {
     }
 
     @Override
-    protected Segment createSegment(long segmentId) {
+    protected Segment createSegment(short segmentId) {
         return new FileSegment(this, segmentId);
     }
 

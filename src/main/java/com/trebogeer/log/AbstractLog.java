@@ -19,9 +19,9 @@ public abstract class AbstractLog implements Loggable, Log {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private LogConfig config;
-    protected final TreeMap<Long, Segment> segments = new TreeMap<>();
+    protected final TreeMap<Short, Segment> segments = new TreeMap<>();
     protected Segment currentSegment;
-    private long nextSegmentId;
+    private short nextSegmentId;
     private long lastFlush;
     protected String name;
 
@@ -47,13 +47,13 @@ public abstract class AbstractLog implements Loggable, Log {
      * @param segmentId  The log segment id.
      * @return A new log segment.
      */
-    protected abstract Segment createSegment(long segmentId);
+    protected abstract Segment createSegment(short segmentId);
 
     /**
      * Returns a collection of log segments.
      */
     @Override
-    public TreeMap<Long, Segment> segments() {
+    public TreeMap<Short, Segment> segments() {
         return segments;
     }
 
@@ -71,9 +71,9 @@ public abstract class AbstractLog implements Loggable, Log {
      * @throws IndexOutOfBoundsException if no segment exists for the {@code index}
      */
     @Override
-    public Segment segment(long index) {
+    public Segment segment(short index) {
         assertIsOpen();
-        Map.Entry<Long, Segment> segment = segments.floorEntry(index);
+        Map.Entry<Short, Segment> segment = segments.floorEntry(index);
         //assertContainsIndex(index);
         return segment.getValue();
     }
@@ -84,7 +84,7 @@ public abstract class AbstractLog implements Loggable, Log {
     @Override
     public Segment firstSegment() {
         assertIsOpen();
-        Map.Entry<Long, Segment> segment = segments.firstEntry();
+        Map.Entry<Short, Segment> segment = segments.firstEntry();
         return segment != null ? segment.getValue() : null;
     }
 
@@ -94,7 +94,7 @@ public abstract class AbstractLog implements Loggable, Log {
     @Override
     public Segment lastSegment() {
         assertIsOpen();
-        Map.Entry<Long, Segment> segment = segments.lastEntry();
+        Map.Entry<Short, Segment> segment = segments.lastEntry();
         return segment != null ? segment.getValue() : null;
     }
 
@@ -179,8 +179,11 @@ public abstract class AbstractLog implements Loggable, Log {
      */
     @Override
     public ByteBuffer getEntry(byte[] index) {
+        // TODO
+        //FIXME retrieve correct entry from proper segment.
         assertIsOpen();
-        for (Map.Entry<Long, Segment> s : segments.entrySet()) {
+        //currentSegment.
+        for (Map.Entry<Short, Segment> s : segments.entrySet()) {
             ByteBuffer value;
             if ((value = s.getValue().getEntry(index)) != null) {
                 return value;
@@ -191,7 +194,7 @@ public abstract class AbstractLog implements Loggable, Log {
 
 
     @Override
-    public void rollOver(long index) throws IOException {
+    public void rollOver(short index) throws IOException {
         // If the current segment is empty then just remove it.
         if (currentSegment.isEmpty()) {
             segments.remove(currentSegment.id());
@@ -215,15 +218,15 @@ public abstract class AbstractLog implements Loggable, Log {
     }
 
     @Override
-    public void compact(long index) throws IOException {
+    public void compact(short index) throws IOException {
         // Assert.index(index, index >= index() && (lastIndex() == null || index <= lastIndex()), "%s is invalid for the log", index);
         // Assert.arg(index, segments.containsKey(index), "%s must be the first index of a segment", index);
 
         // Iterate through all segments in the log. If a segment's first index matches the given index or its last index
         // is less than the given index then remove/close/delete the segment.
         logger.info("Compacting log at index {}", index);
-        for (Iterator<Map.Entry<Long, Segment>> iterator = segments.entrySet().iterator(); iterator.hasNext(); ) {
-            Map.Entry<Long, Segment> entry = iterator.next();
+        for (Iterator<Map.Entry<Short, Segment>> iterator = segments.entrySet().iterator(); iterator.hasNext(); ) {
+            Map.Entry<Short, Segment> entry = iterator.next();
             Segment segment = entry.getValue();
             if (index > segment.id()) {
                 iterator.remove();
@@ -280,7 +283,7 @@ public abstract class AbstractLog implements Loggable, Log {
     private void createInitialSegment() throws IOException {
         currentSegment = createSegment(++nextSegmentId);
         currentSegment.open();
-        segments.put((long) 1, currentSegment);
+        segments.put((short) 1, currentSegment);
     }
 
     /**
@@ -297,7 +300,7 @@ public abstract class AbstractLog implements Loggable, Log {
                 && System.currentTimeMillis() > currentSegment.timestamp() + config.getSegmentInterval();
 
         if (segmentSizeExceeded || segmentExpired) {
-            rollOver(currentSegment.id() + 1);
+            rollOver((short)(currentSegment.id() + 1));
         }
     }
 

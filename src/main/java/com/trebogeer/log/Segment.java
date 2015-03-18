@@ -21,7 +21,7 @@ public interface Segment extends Loggable, Serializable {
      *
      * @return the segment id.
      */
-    long id();
+    short id();
 
     /**
      * Returns the segment timestamp.

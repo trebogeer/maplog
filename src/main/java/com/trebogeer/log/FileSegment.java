@@ -46,7 +46,7 @@ public class FileSegment extends AbstractSegment {
         }
     };
 
-    FileSegment(FileLog log, long id) {
+    FileSegment(FileLog log, short id) {
         super(id);
         this.log = log;
         this.logFile = new File(log.base.getParentFile(), String.format("%s-%d.log", log.base.getName(), id));
@@ -100,7 +100,7 @@ public class FileSegment extends AbstractSegment {
             while (indexFileChannel.read(b) != -1) {
                 b.flip();
                 b.get(key);
-                memIndex.put(Utils.toLong(key), new Value(b.getLong(), b.getInt()));
+                memIndex.put(Utils.toLong(key), new Value(b.getLong(), b.getInt(), id()));
                 b.rewind();
             }
             logger.info("Loaded segment {} index in memory. Elapsed time millis : {}, total number of entries so far : {}",

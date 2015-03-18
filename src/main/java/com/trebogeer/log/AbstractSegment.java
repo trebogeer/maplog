@@ -11,10 +11,10 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public abstract class AbstractSegment implements Loggable, Segment, Comparator<AbstractSegment> {
 
-    protected final long id;
+    protected final short id;
     protected final static ConcurrentHashMap<Long, AbstractSegment.Value> memIndex = new ConcurrentHashMap<>();
 
-    protected AbstractSegment(long id) {
+    protected AbstractSegment(short id) {
         this.id = id;
     }
 
@@ -24,7 +24,7 @@ public abstract class AbstractSegment implements Loggable, Segment, Comparator<A
     }
 
     @Override
-    public long id() {
+    public short id() {
         return id;
     }
 
@@ -37,10 +37,14 @@ public abstract class AbstractSegment implements Loggable, Segment, Comparator<A
     static final class Value implements Serializable {
         final long position;
         final int offset;
+        final byte flags;
+        final short segmentId;
 
-        public Value(long position, int offset) {
+        public Value(long position, int offset, short segmentId) {
             this.position = position;
             this.offset = offset;
+            this.flags = 0;
+            this.segmentId = segmentId;
         }
     }
 }

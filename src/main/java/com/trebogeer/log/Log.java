@@ -23,7 +23,7 @@ public interface Log extends Serializable {
      *
      * @return A map of segments in the log.
      */
-    TreeMap<Long, Segment> segments();
+    TreeMap<Short, Segment> segments();
 
     /**
      * Returns the current log segment.
@@ -35,7 +35,7 @@ public interface Log extends Serializable {
      *
      * @throws IndexOutOfBoundsException if no segment exists for the {@code index}
      */
-    Segment segment(long index);
+    Segment segment(short index);
 
     /**
      * Returns the first log segment.
@@ -52,7 +52,7 @@ public interface Log extends Serializable {
      *
      * @throws java.io.IOException If the log failed to create a new segment.
      */
-    void rollOver(long index) throws IOException;
+    void rollOver(short index) throws IOException;
 
     /**
      * Compacts the log, removing all segments up to and including the given index.
@@ -64,6 +64,6 @@ public interface Log extends Serializable {
      * @throws IndexOutOfBoundsException if {@code index} is out of bounds for the log
      * @throws IOException               If the log failed to delete a segment.
      */
-    void compact(long index) throws IOException;
+    void compact(short index) throws IOException;
 
 }
