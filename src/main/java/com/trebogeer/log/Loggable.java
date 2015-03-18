@@ -2,6 +2,7 @@ package com.trebogeer.log;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 
 /**
@@ -9,7 +10,7 @@ import java.nio.ByteBuffer;
  *         Date: 3/16/15
  *         Time: 11:45 AM
  */
-public interface Loggable extends Closeable {
+public interface Loggable extends Closeable, Serializable {
 
     /**
      * Opens the logger.

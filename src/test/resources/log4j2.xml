@@ -7,7 +7,7 @@
 
     <Appenders>
         <!-- Async Loggers will auto-flush in batches, so switch off immediateFlush. -->
-        <RollingRandomAccessFile name="JLOG" fileName="/tmp/jlog.log" immediateFlush="false" append="false"
+        <RollingRandomAccessFile name="JLOG" fileName="/tmp/jlog.log" immediateFlush="true" append="true"
                                  filePattern="/tmp/jlog.log.%d{yyyy-MM-dd-HH}">
             <PatternLayout>
                 <Pattern>%d [%t] %p [M: %marker] %c{5} %m %ex%n</Pattern>
@@ -21,7 +21,7 @@
         </RollingRandomAccessFile>
     </Appenders>
     <Loggers>
-        <Root level="info" includeLocation="false">
+        <Root level="debug" includeLocation="false">
             <AppenderRef ref="JLOG"/>
         </Root>
     </Loggers>

@@ -1,6 +1,7 @@
 package com.trebogeer.log;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.TreeMap;
 
 /**
@@ -8,7 +9,7 @@ import java.util.TreeMap;
  *         Date: 3/16/15
  *         Time: 11:45 AM
  */
-public interface Log {
+public interface Log extends Serializable {
 
     /**
      * Returns the log configuration.

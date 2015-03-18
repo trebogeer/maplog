@@ -1,7 +1,6 @@
 package com.trebogeer.log;
 
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -10,10 +9,10 @@ import java.util.concurrent.ConcurrentHashMap;
  *         Date: 3/16/15
  *         Time: 12:38 PM
  */
-public abstract class AbstractSegment<T> implements Loggable, Segment, Comparator<AbstractSegment> {
+public abstract class AbstractSegment implements Loggable, Segment, Comparator<AbstractSegment> {
 
     protected final long id;
-    protected final ConcurrentHashMap<ByteArrayWrapper, T> memIndex = new ConcurrentHashMap<>();
+    protected final static ConcurrentHashMap<Long, AbstractSegment.Value> memIndex = new ConcurrentHashMap<>();
 
     protected AbstractSegment(long id) {
         this.id = id;
@@ -35,27 +34,13 @@ public abstract class AbstractSegment<T> implements Loggable, Segment, Comparato
         return String.valueOf(id());
     }
 
-    static final class ByteArrayWrapper implements Serializable {
-        private final byte[] data;
+    static final class Value implements Serializable {
+        final long position;
+        final int offset;
 
-        public ByteArrayWrapper(byte[] data) {
-            if (data == null) {
-                throw new NullPointerException();
-            }
-            this.data = data;
-        }
-
-        @Override
-        public boolean equals(Object other) {
-            if (!(other instanceof ByteArrayWrapper)) {
-                return false;
-            }
-            return Arrays.equals(data, ((ByteArrayWrapper) other).data);
-        }
-
-        @Override
-        public int hashCode() {
-            return Arrays.hashCode(data);
+        public Value(long position, int offset) {
+            this.position = position;
+            this.offset = offset;
         }
     }
 }

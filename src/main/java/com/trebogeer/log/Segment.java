@@ -1,11 +1,13 @@
 package com.trebogeer.log;
 
+import java.io.Serializable;
+
 /**
  * @author dimav
  *         Date: 3/16/15
  *         Time: 11:45 AM
  */
-public interface Segment extends Loggable {
+public interface Segment extends Loggable, Serializable {
 
     /**
      * Returns the parent log.

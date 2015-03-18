@@ -23,6 +23,7 @@ public abstract class AbstractLog implements Loggable, Log {
     protected Segment currentSegment;
     private long nextSegmentId;
     private long lastFlush;
+    protected String name;
 
     protected AbstractLog(LogConfig config) {
         this.config = config.copy();
@@ -202,7 +203,7 @@ public abstract class AbstractLog implements Loggable, Log {
         }
 
         currentSegment = createSegment(++nextSegmentId);
-        logger.debug("Rolling over to new segment at new index {}", index);
+        logger.info("Rolling over to new segment at new index {}", index);
 
         // Open the new segment.
         currentSegment.open();
@@ -220,7 +221,7 @@ public abstract class AbstractLog implements Loggable, Log {
 
         // Iterate through all segments in the log. If a segment's first index matches the given index or its last index
         // is less than the given index then remove/close/delete the segment.
-        logger.debug("Compacting log at index {}", index);
+        logger.info("Compacting log at index {}", index);
         for (Iterator<Map.Entry<Long, Segment>> iterator = segments.entrySet().iterator(); iterator.hasNext(); ) {
             Map.Entry<Long, Segment> entry = iterator.next();
             Segment segment = entry.getValue();
@@ -247,10 +248,12 @@ public abstract class AbstractLog implements Loggable, Log {
 
     @Override
     public synchronized void close() throws IOException {
+        logger.info("Closing log file [{}]", name);
         for (Segment segment : segments.values())
             segment.close();
         segments.clear();
         currentSegment = null;
+        logger.info("Closed log file [{}]", name);
     }
 
     @Override

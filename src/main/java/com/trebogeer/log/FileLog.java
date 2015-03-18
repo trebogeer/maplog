@@ -24,13 +24,14 @@ public class FileLog extends AbstractLog {
         super(config);
         this.config = config.copy();
         this.base = new File(config.getDirectory(), name);
+        this.name = this.base.getAbsolutePath();
     }
 
     @Override
     protected Collection<Segment> loadSegments() {
         Map<Long, Segment> segments = new HashMap<>();
         base.getAbsoluteFile().getParentFile().mkdirs();
-        logger.info("Logging data to [%s]", base.getAbsolutePath());
+        logger.info("Logging data to [{}]", name);
         for (File file : config.getDirectory().listFiles(File::isFile)) {
             if (file.getName().startsWith(base.getName() + "-") && file.getName().endsWith(".metadata")) {
                 String st = file.getName().substring(file.getName().lastIndexOf('-') + 1);

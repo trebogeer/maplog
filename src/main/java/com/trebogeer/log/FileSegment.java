@@ -16,7 +16,7 @@ import java.nio.file.StandardOpenOption;
  *         Date: 3/16/15
  *         Time: 12:41 PM
  */
-public class FileSegment extends AbstractSegment<FileSegment.Value> {
+public class FileSegment extends AbstractSegment {
 
     private static final Logger logger = LoggerFactory.getLogger(FileSegment.class);
 
@@ -93,16 +93,18 @@ public class FileSegment extends AbstractSegment<FileSegment.Value> {
         indexFileChannel = FileChannel.open(this.indexFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
         long indexFileSize = indexFileChannel.size();
         if (indexFileSize != 0) {
+            // TODO read bigger chunks here
             long start = System.currentTimeMillis();
             ByteBuffer b = indexBuffer.get();
-            byte[] key = new byte[INDEX_ENTRY_SIZE - 12];
+            byte[] key = new byte[8];
             while (indexFileChannel.read(b) != -1) {
                 b.flip();
                 b.get(key);
-                memIndex.put(new ByteArrayWrapper(key), new Value(b.getLong(), b.getInt()));
+                memIndex.put(Utils.toLong(key), new Value(b.getLong(), b.getInt()));
                 b.rewind();
             }
-            logger.info("Loaded segment {} index in memory. Elapsed time millis : {}", id(), start - System.currentTimeMillis());
+            logger.info("Loaded segment {} index in memory. Elapsed time millis : {}, total number of entries so far : {}",
+                    id(), System.currentTimeMillis() - start, memIndex.size());
         }
         indexFileChannel.position(indexFileSize);
 
@@ -167,7 +169,7 @@ public class FileSegment extends AbstractSegment<FileSegment.Value> {
      * Finds the position of the given index in the segment.
      */
     private Value findPosition(byte[] index) {
-        return memIndex.get(new ByteArrayWrapper(index));
+        return memIndex.get(MurMur3.MurmurHash3_x64_64(index, 127));
     }
 
 
@@ -200,6 +202,7 @@ public class FileSegment extends AbstractSegment<FileSegment.Value> {
 
     @Override
     public void close() throws IOException {
+        logger.info("Closing segment [{}]", id());
         assertIsOpen();
         logFileChannel.close();
         logFileChannel = null;
@@ -217,16 +220,6 @@ public class FileSegment extends AbstractSegment<FileSegment.Value> {
         logFile.delete();
         indexFile.delete();
         metadataFile.delete();
-    }
-
-    static final class Value {
-        final long position;
-        final int offset;
-
-        public Value(long position, int offset) {
-            this.position = position;
-            this.offset = offset;
-        }
     }
 
 

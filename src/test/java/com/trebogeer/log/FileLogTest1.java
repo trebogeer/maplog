@@ -22,9 +22,9 @@ public class FileLogTest1 {
 
         try (FileLog fileLog = new FileLog("dude-ext-id", new FileLogConfig())) {
             fileLog.open();
-            for (int ii = 2; ii < 3; ii++) {
+            for (int ii = 0; ii < 1; ii++) {
                 long start = System.currentTimeMillis();
-                for (int i = 0; i < 300/*000000*/; i++) {
+                for (int i = 0; i < 300000000; i++) {
                     String rs = "proxy_asset1/proxy/img/mp/00/00/00/c0/10725c0a63189f34f66c67eb8660e625.img.v1";
                     String rs1 = "spin_prod_501206901?hei=624&wid=624&op_sharpen=1";
                     String s = "http://sprel401p.prod.ch4.s.com:8080/jenkins/job/greenapi305p.prod.ch3.s.com/2/console" + i + "\n";
@@ -43,6 +43,10 @@ public class FileLogTest1 {
 
                 System.out.println("Elapsed time: " + (System.currentTimeMillis() - start));
             }
+            ByteBuffer b = fileLog.getEntry(longToBytes(20));
+            byte[] s = new byte[b.limit()];
+            b.get(s);
+            System.out.println(new String(s));
         } catch (IOException e) {
             System.out.println(e.getMessage());
         }
