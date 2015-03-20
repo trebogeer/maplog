@@ -26,8 +26,8 @@ public class FileLogTest1 {
 
         byte[] image = baos.toByteArray();
 
-
-        try (FileLog fileLog = new FileLog("images0", new FileLogConfig().withDirectory(path))) {
+        FileLogConfig cfg = new FileLogConfig().withDirectory(path).withFlushOnWrite(true).withFileLocks(true);
+        try (FileLog fileLog = new FileLog("images0", cfg)) {
             fileLog.open();
             for (int ii = 0; ii < 1; ii++) {
                 long start = System.currentTimeMillis();

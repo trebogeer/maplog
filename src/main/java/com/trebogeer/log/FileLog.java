@@ -83,7 +83,7 @@ public class FileLog extends AbstractLog {
 
     @Override
     protected Segment createSegment(short segmentId) {
-        return new FileSegment(this, segmentId);
+        return config.isLockFiles() ? new FileSegment(this, segmentId) : new NonLockingFileSegment(this, segmentId);
     }
 
     @Override
@@ -91,7 +91,7 @@ public class FileLog extends AbstractLog {
         if (partition != null) {
             long usable = partition.getUsableSpace();
             return usable > 0 &&
-                    usable / (double)partition.getTotalSpace() > config.getStopWritesAtPercent()/100f;
+                    usable / (double) partition.getTotalSpace() > config.getStopWritesAtPercent() / 100f;
         }
         return true;
     }

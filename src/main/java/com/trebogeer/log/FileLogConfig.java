@@ -11,9 +11,11 @@ public class FileLogConfig extends LogConfig {
 
     private static final String FILE_LOG_DIRECTORY = "jlog.dir";
     private static final String DENY_WRITES_AT_PERCENT = "jlog.stop.writes.at.percent";
+    private static final String LOCK_FILES_ON_WRITE = "jlog.lock.files";
 
     private String logDir = System.getProperty(FILE_LOG_DIRECTORY, System.getProperty("user.dir"));
     private int stopWritesAtPercent = Integer.getInteger(DENY_WRITES_AT_PERCENT, 5);
+    private boolean lockFiles = Boolean.getBoolean(LOCK_FILES_ON_WRITE);
 
     @Override
     public FileLogConfig copy() {
@@ -113,4 +115,16 @@ public class FileLogConfig extends LogConfig {
         return this;
     }
 
+    public boolean isLockFiles() {
+        return lockFiles;
+    }
+
+    public void setLockFiles(boolean lockFiles) {
+        this.lockFiles = lockFiles;
+    }
+
+    public FileLogConfig withFileLocks(boolean lockFiles) {
+        setLockFiles(lockFiles);
+        return this;
+    }
 }

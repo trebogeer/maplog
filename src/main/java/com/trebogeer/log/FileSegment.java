@@ -29,10 +29,10 @@ public class FileSegment extends AbstractSegment {
     private final File indexFile;
     private final File metadataFile;
     private long timestamp;
-    private FileChannel logFileChannel;
-    private FileChannel indexFileChannel;
-    private boolean isEmpty = true;
-    private final ThreadLocal<ByteBuffer> indexBuffer = new ThreadLocal<ByteBuffer>() {
+    protected FileChannel logFileChannel;
+    protected FileChannel indexFileChannel;
+    protected boolean isEmpty = true;
+    protected final ThreadLocal<ByteBuffer> indexBuffer = new ThreadLocal<ByteBuffer>() {
 
         @Override
         protected ByteBuffer initialValue() {
@@ -133,7 +133,7 @@ public class FileSegment extends AbstractSegment {
     public long size() {
         assertIsOpen();
         try {
-            // TODO optimize to return approx value may be. This is to estimate rollover mostly.
+            // TODO optimize to return approx value may be. This is to estimate if rollover is needed mostly.
             return logFileChannel.size();
         } catch (IOException e) {
             throw new LogException("error retrieving size from file channel", e);
@@ -169,7 +169,7 @@ public class FileSegment extends AbstractSegment {
     /**
      * Stores the position of an entry in the log.
      */
-    private void storePosition(byte[] index, long position, int offset) {
+    protected void storePosition(byte[] index, long position, int offset) {
         FileLock fl = null;
         try {
             long key = MurMur3.MurmurHash3_x64_64(index, 127);
