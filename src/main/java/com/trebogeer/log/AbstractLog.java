@@ -121,7 +121,9 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     public synchronized void open() throws IOException {
         assertIsNotOpen();
         long start = System.currentTimeMillis();
-        ExecutorService es = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        // having concurrent load does not make much sense on spinning drive. Sequential reads work better.
+        // Setting concurrency level to one for now.
+        ExecutorService es = Executors.newFixedThreadPool(/*Runtime.getRuntime().availableProcessors()*/1);
         // Load existing log segments from disk.
         Map<Short, Segment> syncSegments = Collections.synchronizedMap(segments);
         List<Callable<Short>> callables = new LinkedList<>();
@@ -137,7 +139,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
 
             List<Future<Short>> futures = es.invokeAll(callables);
             es.shutdown();
-            if (!es.awaitTermination(5, TimeUnit.MINUTES)) {
+            if (!es.awaitTermination(10, TimeUnit.MINUTES)) {
                 es.shutdownNow();
                 logger.error("Failed to open segments within 5 minutes. Will not start.");
                 throw new LogException("Failed to open segments within 5 minutes.");
