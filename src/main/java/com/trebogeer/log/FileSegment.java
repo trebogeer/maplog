@@ -11,6 +11,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 
 /**
@@ -32,11 +33,11 @@ public class FileSegment extends AbstractSegment {
     protected FileChannel logFileChannel;
     protected FileChannel indexFileChannel;
     protected boolean isEmpty = true;
+    private static ReentrantLock lock = new ReentrantLock();
     protected final ThreadLocal<ByteBuffer> indexBuffer = new ThreadLocal<ByteBuffer>() {
 
         @Override
         protected ByteBuffer initialValue() {
-            // TODO make size configurable
             return ByteBuffer.allocate(INDEX_ENTRY_SIZE);
         }
 
@@ -77,19 +78,19 @@ public class FileSegment extends AbstractSegment {
         if (!metadataFile.exists()) {
             timestamp = System.currentTimeMillis();
             try (RandomAccessFile metaFile = new RandomAccessFile(metadataFile, "rw")) {
-                metaFile.writeLong(super.id); // First index of the segment.
-                metaFile.writeLong(timestamp); // Timestamp of the time at which the segment was created.
+                metaFile.writeShort(super.id);
+                metaFile.writeLong(timestamp);
             }
         } else {
             try (RandomAccessFile metaFile = new RandomAccessFile(metadataFile, "r")) {
-                long metaFileIndex = metaFile.readLong();
+                short metaFileIndex = metaFile.readShort();
                 if (metaFileIndex != super.id) {
                     throw new LogException("Segment metadata out of sync");
                 }
                 timestamp = metaFile.readLong();
             }
         }
-
+        // TODO should have may be separate channels for read and append.
         logFileChannel = FileChannel.open(this.logFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
         logFileChannel.position(logFileChannel.size());
         indexFileChannel = FileChannel.open(this.indexFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
@@ -147,6 +148,7 @@ public class FileSegment extends AbstractSegment {
         FileLock fl = null;
         try {
             entry.rewind();
+            lock.lock();
             fl = logFileChannel.lock(logFileChannel.position(), Long.MAX_VALUE - logFileChannel.position() - 1, false);
             long position = logFileChannel.position();
             logFileChannel.write(entry);
@@ -162,6 +164,7 @@ public class FileSegment extends AbstractSegment {
                     logger.error(String.format("Failed to release lock - segment %d", id()), e);
                 }
             }
+            lock.unlock();
         }
         return index;
     }

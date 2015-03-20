@@ -1,7 +1,9 @@
 package com.trebogeer.log;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 /**
@@ -12,7 +14,21 @@ import java.nio.ByteBuffer;
 public class FileLogTest2 {
 
     public static void main(String... args) {
-        try (FileLog fileLog = new FileLog("images1", new FileLogConfig().withDirectory(System.getProperty("user.home") + File.separator + "tmp" + File.separator))) {
+
+        String path = System.getProperty("user.home") + File.separator + "tmp" + File.separator;
+        InputStream fis = FileLogTest1.class.getResourceAsStream("/image");
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try {
+            TestUtils.pipe(fis, baos);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
+        byte[] image = baos.toByteArray();
+
+        int crc = Utils.src32_t(image);
+        try (FileLog fileLog = new FileLog("images1", new FileLogConfig().withDirectory(path))) {
             fileLog.open();
             for (int ii = 0; ii < 1; ii++) {
                 long start = System.currentTimeMillis();
@@ -23,8 +39,8 @@ public class FileLogTest2 {
                         System.out.println("Entry is null for key : " + String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i));
                         continue;
                     }
-                    while (bb.hasRemaining()) {
-                        bb.get();
+                    if (Utils.src32_t(bb) != crc) {
+                        System.out.println("Corrupted entry is detected for entry : " + String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i));
                     }
                 }
 

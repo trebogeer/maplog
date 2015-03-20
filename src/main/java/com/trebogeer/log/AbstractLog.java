@@ -339,7 +339,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
      *
      * @throws IOException if a new segment cannot be opened
      */
-    private void checkRollOver() throws IOException {
+    private synchronized void checkRollOver() throws IOException {
         if (currentSegment.isEmpty())
             return;
 
