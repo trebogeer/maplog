@@ -90,9 +90,8 @@ public class FileLog extends AbstractLog {
     protected boolean checkSpaceAvailable() {
         if (partition != null) {
             long usable = partition.getUsableSpace();
-            // TODO make percent configurable, find better way to get to partition.
             return usable > 0 &&
-                    usable / (double)partition.getTotalSpace() > 0.05;
+                    usable / (double)partition.getTotalSpace() > config.getStopWritesAtPercent()/100f;
         }
         return true;
     }
