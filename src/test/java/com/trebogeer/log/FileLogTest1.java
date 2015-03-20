@@ -27,14 +27,14 @@ public class FileLogTest1 {
         byte[] image = baos.toByteArray();
 
 
-        try (FileLog fileLog = new FileLog("dude-ext-id", new FileLogConfig().withDirectory(path))) {
+        try (FileLog fileLog = new FileLog("images0", new FileLogConfig().withDirectory(path))) {
             fileLog.open();
             for (int ii = 0; ii < 1; ii++) {
                 long start = System.currentTimeMillis();
                 for (int i = 0; i < 10000000; i++) {
-                    String rs = "proxy_asset1/proxy/img/mp/00/00/00/c0/10725c0a63189f34f66c67eb8660e625.img.v1";
-                    String rs1 = "spin_prod_501206901?hei=624&wid=624&op_sharpen=1";
-                    String s = "http://sprel401p.prod.ch4.s.com:8080/jenkins/job/greenapi305p.prod.ch3.s.com/2/console" + i + "\n";
+                    String rs = "stored_asset1/stored/img/gh/00/00/00/c0/10725c0a63189f34f66c67eb8660e625.img.v1";
+                    String rs1 = "nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1";
+                    String s = "http://abcdefght.host.asd.s.com:8080/somesys/job/lskdfjl.lsdkfj.lsdkf.sdfk/2/cfsdfe" + i + "\n";
                     byte data[] = image;
                  //   byte data[] = s.getBytes();
                     int l = data.length;
@@ -45,13 +45,13 @@ public class FileLogTest1 {
                     bb.put(data);
 
                     bb.rewind();
-                    fileLog.appendEntry(bb, String.format("spin_prod_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i).getBytes());
+                    fileLog.appendEntry(bb, String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i).getBytes());
 
                 }
 
                 System.out.println("Elapsed time: " + (System.currentTimeMillis() - start));
             }
-            ByteBuffer b = fileLog.getEntry(String.format("spin_prod_5012%d?hei=624&wid=624&op_sharpen=1", 20).getBytes());
+            ByteBuffer b = fileLog.getEntry(String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", 20).getBytes());
             byte[] s = new byte[b.limit()];
             b.get(s);
             System.out.println(new String(s));

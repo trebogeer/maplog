@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 
@@ -132,6 +133,7 @@ public class FileSegment extends AbstractSegment {
     public long size() {
         assertIsOpen();
         try {
+            // TODO optimize to return approx value may be. This is to estimate rollover mostly.
             return logFileChannel.size();
         } catch (IOException e) {
             throw new LogException("error retrieving size from file channel", e);
@@ -142,14 +144,24 @@ public class FileSegment extends AbstractSegment {
     @Override
     public byte[] appendEntry(ByteBuffer entry, byte[] index) {
         assertIsOpen();
+        FileLock fl = null;
         try {
             entry.rewind();
+            fl = logFileChannel.lock(logFileChannel.position(), Long.MAX_VALUE - logFileChannel.position() - 1, false);
             long position = logFileChannel.position();
             logFileChannel.write(entry);
             storePosition(index, position, entry.limit());
             isEmpty = false;
         } catch (IOException e) {
             throw new LogException("error appending entry", e);
+        } finally {
+            if (fl != null) {
+                try {
+                    fl.release();
+                } catch (IOException e) {
+                    logger.error(String.format("Failed to release lock - segment %d", id()), e);
+                }
+            }
         }
         return index;
     }
@@ -158,19 +170,27 @@ public class FileSegment extends AbstractSegment {
      * Stores the position of an entry in the log.
      */
     private void storePosition(byte[] index, long position, int offset) {
+        FileLock fl = null;
         try {
             long key = MurMur3.MurmurHash3_x64_64(index, 127);
             ByteBuffer buffer = indexBuffer.get().
                     putLong(key).putLong(position).putInt(offset);
             buffer.flip();
+            fl = indexFileChannel.lock(indexFileChannel.position(), Long.MAX_VALUE - logFileChannel.position() - 1, false);
             indexFileChannel.write(buffer);
             log().index().put(key, new Index.Value(position, offset, id()));
         } catch (IOException e) {
             throw new LogException("error storing position", e);
+        } finally {
+            try {
+                if (fl != null) {
+                    fl.release();
+                }
+            } catch (IOException e) {
+                logger.error(String.format("Failed to release index file lock - segment %d", id()), e);
+            }
         }
     }
-
-
 
 
     @Override

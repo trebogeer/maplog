@@ -12,15 +12,15 @@ import java.nio.ByteBuffer;
 public class FileLogTest2 {
 
     public static void main(String... args) {
-        try (FileLog fileLog = new FileLog("dude-ext-id", new FileLogConfig().withDirectory(System.getProperty("user.home") + File.separator + "tmp" + File.separator))) {
+        try (FileLog fileLog = new FileLog("images1", new FileLogConfig().withDirectory(System.getProperty("user.home") + File.separator + "tmp" + File.separator))) {
             fileLog.open();
             for (int ii = 0; ii < 1; ii++) {
                 long start = System.currentTimeMillis();
                 for (int i = 0; i < 10000000; i++) {
 
-                    ByteBuffer bb = fileLog.getEntry(String.format("spin_prod_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i).getBytes());
+                    ByteBuffer bb = fileLog.getEntry(String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i).getBytes());
                     if (bb == null) {
-                        System.out.println("Entry is null for key : " + String.format("spin_prod_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i));
+                        System.out.println("Entry is null for key : " + String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i));
                         continue;
                     }
                     while (bb.hasRemaining()) {
@@ -30,7 +30,7 @@ public class FileLogTest2 {
 
                 System.out.println("Elapsed time: " + (System.currentTimeMillis() - start));
             }
-            ByteBuffer b = fileLog.getEntry(String.format("spin_prod_5012%d?hei=624&wid=624&op_sharpen=1", 20).getBytes());
+            ByteBuffer b = fileLog.getEntry(String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", 20).getBytes());
             byte[] s = new byte[b.limit()];
             b.get(s);
             System.out.println(new String(s));
