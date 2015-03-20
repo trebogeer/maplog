@@ -6,9 +6,18 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author dimav
@@ -20,7 +29,10 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private LogConfig config;
     protected final TreeMap<Short, Segment> segments = new TreeMap<>();
-    protected final Index<Long> index = new ConcurrentHashMapIndex();
+    // protected final Index<Long> index = new ConcurrentHashMapIndex();
+    protected final Index<Long> index = new TroveIndex();
+    //    protected final Index<Long> index = new NBCHMIndex();
+//    protected final Index<Long> index = new MDBIndex();
     protected Segment currentSegment;
     private short nextSegmentId;
     private long lastFlush;
@@ -108,11 +120,40 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     @Override
     public synchronized void open() throws IOException {
         assertIsNotOpen();
-
+        long start = System.currentTimeMillis();
+        ExecutorService es = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
         // Load existing log segments from disk.
+        Map<Short, Segment> syncSegments = Collections.synchronizedMap(segments);
+        List<Callable<Short>> callables = new LinkedList<>();
         for (Segment segment : loadSegments()) {
-            segment.open();
-            segments.put(segment.id(), segment);
+            callables.add(() -> {
+                segment.open();
+                syncSegments.put(segment.id(), segment);
+                return segment.id();
+            });
+        }
+
+        try {
+
+            List<Future<Short>> futures = es.invokeAll(callables);
+            es.shutdown();
+            if (!es.awaitTermination(5, TimeUnit.MINUTES)) {
+                es.shutdownNow();
+                logger.error("Failed to open segments within 5 minutes. Will not start.");
+                throw new LogException("Failed to open segments within 5 minutes.");
+            }
+
+            for (Future<Short> res : futures) {
+                try {
+                    res.get();
+                } catch (ExecutionException ee) {
+                    logger.error("Failed to load segment due to error. Will not start.", ee);
+                    throw new LogException("Failed to load segment due to error.", ee);
+                }
+            }
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
 
         // If a segment doesn't already exist, create an initial segment starting at index 1.
@@ -124,6 +165,8 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
         }
 
         clean();
+        logger.info("Loaded {} index in memory. Elapsed time millis : {}, total number of entries : {}",
+                name, System.currentTimeMillis() - start, index().size());
     }
 
     /**
@@ -160,11 +203,11 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
         return segments.values().stream().mapToLong(Segment::size).sum();
     }
 
-//    @Override
-//    public long entryCount() {
-//        assertIsOpen();
-//        return segments.values().stream().mapToLong(Segment::entryCount).sum();
-//    }
+    @Override
+    public long entryCount() {
+        assertIsOpen();
+        return index().size();
+    }
 
     @Override
     public boolean isEmpty() {
@@ -189,7 +232,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
         assertIsOpen();
         Index.Value v = index().get(MurMur3.MurmurHash3_x64_64(index, 127));
         if (v != null) {
-           return segment(v.segmentId).getEntry(v.position, v.offset);
+            return segment(v.segmentId).getEntry(v.position, v.offset);
         }
         return null;
     }
@@ -208,7 +251,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
         }
 
         currentSegment = createSegment(++nextSegmentId);
-        logger.info("Rolling over to new segment at new index {}", index);
+        logger.info("Rolling over to new segment at index {}, total entries {}", index, index().size());
 
         // Open the new segment.
         currentSegment.open();
@@ -291,7 +334,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     /**
      * Checks whether the current segment needs to be rolled over to a new segment.
      *
-     * @throws LogException if a new segment cannot be opened
+     * @throws IOException if a new segment cannot be opened
      */
     private void checkRollOver() throws IOException {
         if (currentSegment.isEmpty())
@@ -302,9 +345,20 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
                 && System.currentTimeMillis() > currentSegment.timestamp() + config.getSegmentInterval();
 
         if (segmentSizeExceeded || segmentExpired) {
-            rollOver((short) (currentSegment.id() + 1));
+            if (checkSpaceAvailable()) {
+                rollOver((short) (currentSegment.id() + 1));
+            } else {
+                logger.error("Available space is beyond allowed minimum threshold. Disallowing further writes.");
+                throw new IOException("Available space is beyond allowed minimum threshold. Disallowing further writes.");
+            }
         }
     }
+
+    /**
+     * Checks space available on partition prior to rollover.
+     */
+
+    protected abstract boolean checkSpaceAvailable();
 
 
 }

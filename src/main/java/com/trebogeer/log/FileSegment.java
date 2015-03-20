@@ -9,6 +9,7 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
+import java.util.HashMap;
 
 
 /**
@@ -97,14 +98,17 @@ public class FileSegment extends AbstractSegment {
             long start = System.currentTimeMillis();
             ByteBuffer b = indexBuffer.get();
             byte[] key = new byte[8];
+            HashMap<Long, Index.Value> localIndex = new HashMap<>();
             while (indexFileChannel.read(b) != -1) {
                 b.flip();
                 b.get(key);
-                log().index().put(Utils.toLong(key), new Index.Value(b.getLong(), b.getInt(), id()));
+                localIndex.put(Utils.toLong(key), new Index.Value(b.getLong(), b.getInt(), id()));
                 b.rewind();
             }
-            logger.info("Loaded segment {} index in memory. Elapsed time millis : {}, total number of entries so far : {}",
-                    id(), System.currentTimeMillis() - start, log().index().size());
+            // TODO wait on condition to add to global index.
+            log().index().putAll(localIndex);
+            logger.info("Loaded segment {} index in memory. Elapsed time millis : {}, total number of segment entries: {}",
+                    id(), System.currentTimeMillis() - start, localIndex.size());
         }
         indexFileChannel.position(indexFileSize);
 
@@ -155,10 +159,12 @@ public class FileSegment extends AbstractSegment {
      */
     private void storePosition(byte[] index, long position, int offset) {
         try {
+            long key = MurMur3.MurmurHash3_x64_64(index, 127);
             ByteBuffer buffer = indexBuffer.get().
-                    putLong(MurMur3.MurmurHash3_x64_64(index, 127)).putLong(position).putInt(offset);
+                    putLong(key).putLong(position).putInt(offset);
             buffer.flip();
             indexFileChannel.write(buffer);
+            log().index().put(key, new Index.Value(position, offset, id()));
         } catch (IOException e) {
             throw new LogException("error storing position", e);
         }

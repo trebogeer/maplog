@@ -1,20 +1,21 @@
 package com.trebogeer.log;
 
+import gnu.trove.map.hash.THashMap;
+
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author dimav
- *         Date: 3/18/15
- *         Time: 10:19 AM
+ *         Date: 3/19/15
+ *         Time: 5:24 PM
  */
-public class ConcurrentHashMapIndex implements Index<Long> {
+public class TroveIndex implements Index<Long> {
 
-    private final ConcurrentHashMap<Long, Index.Value> index = new ConcurrentHashMap<>();
+    THashMap<Long, Value> index = new THashMap<>();
 
     @Override
-    public void put(Long aLong, Value value) {
-        index.put(aLong, value);
+    public void put(Long aLong, Value v) {
+        index.put(aLong, v);
     }
 
     @Override
@@ -22,6 +23,7 @@ public class ConcurrentHashMapIndex implements Index<Long> {
         return index.get(aLong);
     }
 
+    @Override
     public long size() {
         return index.size();
     }

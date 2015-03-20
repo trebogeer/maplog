@@ -1,6 +1,7 @@
 package com.trebogeer.log;
 
 import java.io.Serializable;
+import java.util.Map;
 
 /**
  * @author dimav
@@ -12,6 +13,7 @@ public interface Index<K> {
     void put(K k, Value v);
     Value get(K k);
     long size();
+    void putAll(Map<K, Value> subset);
 
     static final class Value implements Serializable {
         final long position;

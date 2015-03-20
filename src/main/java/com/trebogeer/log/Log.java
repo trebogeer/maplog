@@ -66,6 +66,18 @@ public interface Log<K> extends Serializable {
      */
     void compact(short index) throws IOException;
 
+    /**
+     * Returns index
+     *
+     * @return index
+     */
     Index<K> index();
+
+    /**
+     * Counts entries indexed.
+     *
+     * @return entry count
+     */
+    long entryCount();
 
 }
