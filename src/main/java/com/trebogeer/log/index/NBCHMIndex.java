@@ -1,6 +1,7 @@
-package com.trebogeer.log;
+package com.trebogeer.log.index;
 
-import org.cliffc.high_scale_lib.NonBlockingHashMapLong;
+import com.trebogeer.log.Index;
+//import org.cliffc.high_scale_lib.NonBlockingHashMapLong;
 
 import java.util.Map;
 
@@ -13,24 +14,24 @@ import java.util.Map;
 public class NBCHMIndex implements Index<Long> {
 
     // optimizing for space
-    NonBlockingHashMapLong<Value> index = new NonBlockingHashMapLong<>(true);
+  //  NonBlockingHashMapLong<Value> index = new NonBlockingHashMapLong<>(true);
     @Override
     public void put(Long l, Value v) {
-         index.put(l, v);
+         /*index.put(l, v);*/
     }
 
     @Override
     public Value get(Long l) {
-        return index.get(l);
+        return null;//index.get(l);
     }
 
     @Override
     public long size() {
-        return index.size();
+        return 0;// index.size();
     }
 
     @Override
     public void putAll(Map<Long, Value> subset) {
-        index.putAll(subset);
+        //index.putAll(subset);
     }
 }

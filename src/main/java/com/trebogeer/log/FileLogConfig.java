@@ -9,7 +9,11 @@ import java.io.File;
  */
 public class FileLogConfig extends LogConfig {
 
-    private static final String FILE_LOG_DIRECTORY = "directory";
+    private static final String FILE_LOG_DIRECTORY = "jlog.dir";
+    private static final String DENY_WRITES_AT_PERCENT = "jlog.stop.writes.at.percent";
+
+    private String logDir = System.getProperty(FILE_LOG_DIRECTORY, System.getProperty("user.dir"));
+    private int stopWritesAtPercent = Integer.getInteger(DENY_WRITES_AT_PERCENT, 5);
 
     @Override
     public FileLogConfig copy() {
@@ -23,7 +27,7 @@ public class FileLogConfig extends LogConfig {
      * @throws java.lang.NullPointerException If the directory is {@code null}
      */
     public void setDirectory(String directory) {
-        //this.config = config.withValue(FILE_LOG_DIRECTORY, ConfigValueFactory.fromAnyRef(Assert.isNotNull(directory, "directory")));
+        logDir = directory;
     }
 
     /**
@@ -42,7 +46,17 @@ public class FileLogConfig extends LogConfig {
      * @return The log directory.
      */
     public File getDirectory() {
-        return new File(System.getProperty("user.home") + "/tmp/");
+        return new File(logDir);
+    }
+
+
+    public int getStopWritesAtPercent() {
+        return stopWritesAtPercent;
+    }
+
+    public void setStopWritesAtPercent(int stopWritesAtPercent) {
+        if (stopWritesAtPercent < 0) throw new IllegalArgumentException();
+        this.stopWritesAtPercent = stopWritesAtPercent;
     }
 
     /**
@@ -93,9 +107,10 @@ public class FileLogConfig extends LogConfig {
         return this;
     }
 
-    /*@Override
-    public Log getLogManager(String name) {
-        return new FileLog(name, this);
-    }*/
+
+    public FileLogConfig withFlushInterval(int stopWritesAtPercent) {
+        setStopWritesAtPercent(stopWritesAtPercent);
+        return this;
+    }
 
 }

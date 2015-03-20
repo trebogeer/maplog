@@ -1,4 +1,6 @@
-package com.trebogeer.log;
+package com.trebogeer.log.index;
+
+import com.trebogeer.log.Index;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

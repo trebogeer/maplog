@@ -1,5 +1,7 @@
 package com.trebogeer.log;
 
+import java.nio.ByteBuffer;
+
 /**
  * @author dimav
  *         Date: 3/17/15
@@ -80,6 +82,18 @@ public class Utils {
             crc = (crc >>> 8) ^ crc3_table[(crc ^ b) & 0xff];
         }
 
+        // flip bits and return result
+        return ~crc;
+
+    }
+
+    public static int src32_t(ByteBuffer bytes) {
+        int crc = 0xffffffff;
+        bytes.mark();
+        while (bytes.hasRemaining()) {
+            crc = (crc >>> 8) ^ crc3_table[(crc ^ bytes.get()) & 0xff];
+        }
+        bytes.reset();
         // flip bits and return result
         return ~crc;
 

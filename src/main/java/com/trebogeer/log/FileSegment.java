@@ -171,28 +171,11 @@ public class FileSegment extends AbstractSegment {
     }
 
 
-    /**
-     * Finds the position of the given index in the segment.
-     */
-    private Index.Value findPosition(byte[] index) {
-        return log().index().get(MurMur3.MurmurHash3_x64_64(index, 127));
-    }
 
 
     @Override
     public ByteBuffer getEntry(byte[] index) {
-        assertIsOpen();
-        try {
-            Index.Value v = findPosition(index);
-            if (v == null)
-                return null;
-            ByteBuffer buffer = ByteBuffer.allocate(v.offset);
-            logFileChannel.read(buffer, v.position);
-            buffer.flip();
-            return buffer;
-        } catch (IOException e) {
-            throw new LogException("error retrieving entry", e);
-        }
+        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -12,14 +12,14 @@ import java.nio.ByteBuffer;
 public class FileLogTest0 {
 
     public static void main(String... args) {
-        String path = System.getProperty("user.home") + File.separator + "tmp";
+        String path = System.getProperty("user.home") + File.separator + "tmp" + File.separator;
         File dir = new File(path);
         if (!dir.exists()) {
             dir.mkdirs();
         }
 
 
-        try (FileLog fileLog = new FileLog("dude", new FileLogConfig())) {
+        try (FileLog fileLog = new FileLog("dude", new FileLogConfig().withDirectory(path))) {
             fileLog.open();
             for (int ii = 0; ii < 1; ii++) {
                 long start = System.currentTimeMillis();

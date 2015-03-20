@@ -1,5 +1,6 @@
 package com.trebogeer.log;
 
+import com.trebogeer.log.index.ConcurrentHashMapIndex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,10 +30,10 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private LogConfig config;
     protected final TreeMap<Short, Segment> segments = new TreeMap<>();
-    // protected final Index<Long> index = new ConcurrentHashMapIndex();
-    protected final Index<Long> index = new TroveIndex();
-    //    protected final Index<Long> index = new NBCHMIndex();
-//    protected final Index<Long> index = new MDBIndex();
+    protected final Index<Long> index = new ConcurrentHashMapIndex();
+    // protected final Index<Long> index = new OAIndex();
+    // protected final Index<Long> index = new NBCHMIndex();
+    // protected final Index<Long> index = new MDBIndex();
     protected Segment currentSegment;
     private short nextSegmentId;
     private long lastFlush;

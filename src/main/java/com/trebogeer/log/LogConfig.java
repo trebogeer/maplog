@@ -8,13 +8,16 @@ package com.trebogeer.log;
 public class LogConfig {
 
 
-    private static final String LOG_SEGMENT_SIZE = "segment.size";
-    private static final String LOG_SEGMENT_INTERVAL = "segment.interval";
-    private static final String LOG_FLUSH_ON_WRITE = "flush.on-write";
-    private static final String LOG_FLUSH_INTERVAL = "flush.interval";
+    private static final String LOG_SEGMENT_SIZE = "jlog.segment.size";
+    private static final String LOG_SEGMENT_INTERVAL = "jlog.segment.interval";
+    private static final String LOG_FLUSH_ON_WRITE = "jlog.flush.on-write";
+    private static final String LOG_FLUSH_INTERVAL = "jlog.flush.interval";
 
     private static final String DEFAULT_CONFIGURATION = "log-defaults";
     private static final String CONFIGURATION = "log";
+
+    private int segmentSize = Integer.getInteger(LOG_SEGMENT_SIZE, Integer.MAX_VALUE);
+    private boolean flushOnWrite = Boolean.getBoolean(LOG_FLUSH_ON_WRITE);
 
 
     // TODO implement
@@ -29,7 +32,8 @@ public class LogConfig {
      * @throws java.lang.IllegalArgumentException If the segment size is not positive
      */
     public void setSegmentSize(int segmentSize) {
-
+        if (segmentSize <= 0) throw new IllegalArgumentException("Segment size cannot be negative or 0.");
+        this.segmentSize = segmentSize;
     }
 
     /**
@@ -38,7 +42,7 @@ public class LogConfig {
      * @return The log segment size in bytes.
      */
     public int getSegmentSize() {
-        return Integer.MAX_VALUE;
+        return this.segmentSize;
     }
 
     /**
@@ -90,7 +94,7 @@ public class LogConfig {
      * @param flushOnWrite Whether to flush the log to disk on every write.
      */
     public void setFlushOnWrite(boolean flushOnWrite) {
-
+         this.flushOnWrite = flushOnWrite;
     }
 
     /**
@@ -99,7 +103,7 @@ public class LogConfig {
      * @return Whether to flush the log to disk on every write.
      */
     public boolean isFlushOnWrite() {
-        return Boolean.TRUE;
+        return this.flushOnWrite;
     }
 
     /**
@@ -120,7 +124,7 @@ public class LogConfig {
      * @throws java.lang.IllegalArgumentException If the flush interval is not positive
      */
     public void setFlushInterval(long flushInterval) {
-
+          throw new UnsupportedOperationException("not implemented yet");
     }
 
     /**
