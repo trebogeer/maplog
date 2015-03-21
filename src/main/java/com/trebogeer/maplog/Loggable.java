@@ -59,6 +59,7 @@ public interface Loggable extends Closeable, Serializable {
      * @return The entry at the given index, or {@code null} if the entry doesn't exist.
      * @throws IllegalStateException If the log is not open.
      */
+    // TODO as it's Log specific now.
     ByteBuffer getEntry(byte[] key);
 
     /**
