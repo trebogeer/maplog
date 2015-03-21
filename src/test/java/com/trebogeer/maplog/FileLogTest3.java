@@ -38,13 +38,13 @@ public class FileLogTest3 {
         try (FileLog fileLog = new FileLog("images1", cfg)) {
             fileLog.open();
 
-            for (int ii = 1; ii <= 4; ii++) {
+            for (int ii = 0; ii <= 3; ii++) {
 
                 final int a = ii;
                 es.execute(() -> {
                     long start = System.currentTimeMillis();
                     int chunk = 2500000;
-                    for (int i = a * chunk; i < a * chunk + chunk; i++) {
+                    for (int i = a * chunk; i < (a * chunk) + chunk; i++) {
                         String rs = "stored_asset1/stored/img/gh/00/00/00/c0/10725c0a63189f34f66c67eb8660e625.img.v1";
                         String rs1 = "nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1";
                         String s = "http://abcdefght.host.asd.s.com:8080/somesys/job/lskdfjl.lsdkfj.lsdkf.sdfk/2/cfsdfe" + i + "\n";
@@ -59,7 +59,7 @@ public class FileLogTest3 {
 
                         bb.rewind();
                         try {
-                            fileLog.appendEntry(bb, String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", (a * i)).getBytes());
+                            fileLog.appendEntry(bb, String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", i).getBytes());
                         } catch (IOException e) {
                             e.printStackTrace();
                         }

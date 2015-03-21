@@ -45,7 +45,7 @@ public class FileLogTest1 {
                     bb.put(data);
 
                     bb.rewind();
-                    fileLog.appendEntry(bb, String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i).getBytes());
+                    fileLog.appendEntry(bb, String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", i).getBytes());
 
                 }
 

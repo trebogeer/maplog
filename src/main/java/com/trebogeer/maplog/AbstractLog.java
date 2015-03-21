@@ -338,7 +338,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
      * @throws IOException if a new segment cannot be opened
      */
     private synchronized void checkRollOver() throws IOException {
-        if (currentSegment.isEmpty())
+        if (currentSegment == null || currentSegment.isEmpty())
             return;
 
         boolean segmentSizeExceeded = currentSegment.size() >= config.getSegmentSize();
