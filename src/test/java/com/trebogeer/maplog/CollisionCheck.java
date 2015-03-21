@@ -1,4 +1,4 @@
-package com.trebogeer.log;
+package com.trebogeer.maplog;
 
 import java.util.HashSet;
 import java.util.Set;

@@ -1,4 +1,7 @@
-package com.trebogeer.log;
+package com.trebogeer.maplog;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -13,6 +16,8 @@ import java.nio.file.WatchService;
  *         Time: 2:11 PM
  */
 public class FileWatcher implements Runnable {
+
+    private static final Logger logger = LoggerFactory.getLogger(FileWatcher.class);
 
     private final FileSegment segment;
 
@@ -37,12 +42,12 @@ public class FileWatcher implements Runnable {
 
                 // poll for file system events on the WatchKey
                 for (final WatchEvent<?> event : watchKey.pollEvents()) {
-                    // printEvent(event);
+                    logger.info(event.toString());
                 }
 
                 // if the watched directed gets deleted, get out of run method
                 if (!watchKey.reset()) {
-                    System.out.println("No longer valid");
+                    logger.info("No longer valid.");
                     watchKey.cancel();
                     watchService.close();
                     break;
@@ -50,11 +55,9 @@ public class FileWatcher implements Runnable {
             }
 
         } catch (InterruptedException ex) {
-            System.out.println("interrupted. Goodbye");
-            return;
+            Thread.currentThread().interrupt();
         } catch (IOException ex) {
-            ex.printStackTrace();  // don't do this in production code. Use a loggin framework
-            return;
+            logger.error("Error watching directory for updates.", ex);
         }
     }
 }

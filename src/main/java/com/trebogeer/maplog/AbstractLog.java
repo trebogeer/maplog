@@ -1,6 +1,6 @@
-package com.trebogeer.log;
+package com.trebogeer.maplog;
 
-import com.trebogeer.log.index.ConcurrentHashMapIndex;
+import com.trebogeer.maplog.index.ConcurrentHashMapIndex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,9 +31,6 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     private LogConfig config;
     protected final TreeMap<Short, Segment> segments = new TreeMap<>();
     protected final Index<Long> index = new ConcurrentHashMapIndex();
-    // protected final Index<Long> index = new OAIndex();
-    // protected final Index<Long> index = new NBCHMIndex();
-    // protected final Index<Long> index = new MDBIndex();
     protected Segment currentSegment;
     private short nextSegmentId;
     private long lastFlush;
@@ -242,7 +239,8 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
 
 
     @Override
-    public void rollOver(short index) throws IOException {
+    // TODO this needs to be optimized. may be rollover in advance as it's quite heavy.
+    public synchronized void rollOver(short index) throws IOException {
         // If the current segment is empty then just remove it.
         if (currentSegment.isEmpty()) {
             segments.remove(currentSegment.id());
@@ -314,7 +312,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
 
     @Override
     public void delete() {
-        segments.values().forEach(com.trebogeer.log.Segment::delete);
+        segments.values().forEach(com.trebogeer.maplog.Segment::delete);
         segments.clear();
     }
 

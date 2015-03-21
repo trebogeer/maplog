@@ -1,4 +1,4 @@
-package com.trebogeer.log;
+package com.trebogeer.maplog;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,7 +69,7 @@ public class FileSegment extends AbstractSegment {
     }
 
     @Override
-    public void open() throws IOException {
+    public synchronized void open() throws IOException {
         assertIsNotOpen();
         if (!logFile.getParentFile().exists()) {
             logFile.getParentFile().mkdirs();

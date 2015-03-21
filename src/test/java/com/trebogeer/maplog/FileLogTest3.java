@@ -1,4 +1,4 @@
-package com.trebogeer.log;
+package com.trebogeer.maplog;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 public class FileLogTest3 {
 
     public static void main(String... args) {
-        ExecutorService es = Executors.newFixedThreadPool(4);
+        ExecutorService es = Executors.newFixedThreadPool(5);
 
         String path = System.getProperty("user.home") + File.separator + "tmp" + File.separator;
         InputStream fis = FileLogTest1.class.getResourceAsStream("/image");
@@ -30,7 +30,7 @@ public class FileLogTest3 {
             e.printStackTrace();
         }
 
-
+        es.execute(new FileWatcher(null, new File(path).toPath()));
         byte[] image = baos.toByteArray();
 
 

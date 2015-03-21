@@ -1,4 +1,4 @@
-package com.trebogeer.log;
+package com.trebogeer.maplog;
 
 import java.io.Closeable;
 import java.io.IOException;

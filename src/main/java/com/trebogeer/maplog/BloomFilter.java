@@ -13,7 +13,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.trebogeer.log;
+package com.trebogeer.maplog;
 
 import java.io.Serializable;
 import java.nio.charset.Charset;

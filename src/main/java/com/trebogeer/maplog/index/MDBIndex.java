@@ -1,6 +1,6 @@
-package com.trebogeer.log.index;
+package com.trebogeer.maplog.index;
 
-import com.trebogeer.log.Index;
+import com.trebogeer.maplog.Index;
 //import org.mapdb.DB;
 //import org.mapdb.DBMaker;
 

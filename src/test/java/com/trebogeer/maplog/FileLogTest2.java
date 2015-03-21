@@ -1,4 +1,4 @@
-package com.trebogeer.log;
+package com.trebogeer.maplog;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -8,12 +8,13 @@ import java.nio.ByteBuffer;
 
 /**
  * @author dimav
- *         Date: 3/16/15
- *         Time: 3:52 PM
+ *         Date: 3/19/15
+ *         Time: 11:41 AM
  */
-public class FileLogTest1 {
+public class FileLogTest2 {
 
     public static void main(String... args) {
+
         String path = System.getProperty("user.home") + File.separator + "tmp" + File.separator;
         InputStream fis = FileLogTest1.class.getResourceAsStream("/image");
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -26,27 +27,21 @@ public class FileLogTest1 {
 
         byte[] image = baos.toByteArray();
 
-        FileLogConfig cfg = new FileLogConfig().withDirectory(path).withFlushOnWrite(true).withFileLocks(true);
-        try (FileLog fileLog = new FileLog("images0", cfg)) {
+        int crc = Utils.src32_t(image);
+        try (FileLog fileLog = new FileLog("images1", new FileLogConfig().withDirectory(path))) {
             fileLog.open();
             for (int ii = 0; ii < 1; ii++) {
                 long start = System.currentTimeMillis();
                 for (int i = 0; i < 10000000; i++) {
-                    String rs = "stored_asset1/stored/img/gh/00/00/00/c0/10725c0a63189f34f66c67eb8660e625.img.v1";
-                    String rs1 = "nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1";
-                    String s = "http://abcdefght.host.asd.s.com:8080/somesys/job/lskdfjl.lsdkfj.lsdkf.sdfk/2/cfsdfe" + i + "\n";
-                    byte data[] = image;
-                 //   byte data[] = s.getBytes();
-                    int l = data.length;
 
-                    int totalSize = 4 + l;
-                    ByteBuffer bb = ByteBuffer.allocate(totalSize);
-                    bb.putInt(l);
-                    bb.put(data);
-
-                    bb.rewind();
-                    fileLog.appendEntry(bb, String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i).getBytes());
-
+                    ByteBuffer bb = fileLog.getEntry(String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i).getBytes());
+                    if (bb == null) {
+                        System.out.println("Entry is null for key : " + String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i));
+                        continue;
+                    }
+                    if (Utils.src32_t(bb) != crc) {
+                        System.out.println("Corrupted entry is detected for entry : " + String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i));
+                    }
                 }
 
                 System.out.println("Elapsed time: " + (System.currentTimeMillis() - start));
@@ -59,5 +54,4 @@ public class FileLogTest1 {
             System.out.println(e.getMessage());
         }
     }
-
 }
