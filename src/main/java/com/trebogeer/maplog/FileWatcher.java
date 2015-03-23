@@ -9,6 +9,7 @@ import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author dimav
@@ -23,6 +24,8 @@ public class FileWatcher implements Runnable {
 
     private final Path path;
 
+    private AtomicBoolean stop = new AtomicBoolean(false);
+
     public FileWatcher(FileSegment segment, Path path) {
         this.segment = segment;
         this.path = path;
@@ -33,16 +36,27 @@ public class FileWatcher implements Runnable {
         try {
             WatchService watchService = path.getFileSystem().newWatchService();
             path.register(watchService,
-                    StandardWatchEventKinds.ENTRY_MODIFY);
+                    StandardWatchEventKinds.ENTRY_MODIFY,
+                    StandardWatchEventKinds.ENTRY_CREATE,
+                    StandardWatchEventKinds.ENTRY_DELETE);
 
             // loop forever to watch directory
-            while (true) {
+            while (!stop.get()) {
                 WatchKey watchKey;
                 watchKey = watchService.take(); // this call is blocking until events are present
 
                 // poll for file system events on the WatchKey
                 for (final WatchEvent<?> event : watchKey.pollEvents()) {
-                    logger.info(event.toString());
+                    String ename = event.kind().name();
+                    if (ename.equals(StandardWatchEventKinds.ENTRY_MODIFY.name())) {
+                        logger.info(event.kind().name());
+                        logger.info(event.count() + "");
+                        logger.info(event.context() + "");
+                    } else if (ename.equals(StandardWatchEventKinds.ENTRY_CREATE)) {
+
+                    } else /*DELETE EVENT*/{
+                        logger.debug(event.kind().name());
+                    }
                 }
 
                 // if the watched directed gets deleted, get out of run method
@@ -59,5 +73,9 @@ public class FileWatcher implements Runnable {
         } catch (IOException ex) {
             logger.error("Error watching directory for updates.", ex);
         }
+    }
+
+    public void shutdown() {
+        this.stop.set(true);
     }
 }

@@ -2,6 +2,7 @@ package com.trebogeer.maplog;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.TreeMap;
 
 /**
@@ -79,5 +80,16 @@ public interface Log<K> extends Serializable {
      * @return entry count
      */
     long entryCount();
+
+    /**
+     * Gets an entry from the log.
+     *
+     * @param key The index of the entry to get.
+     * @return The entry at the given index, or {@code null} if the entry doesn't exist.
+     * @throws IllegalStateException If the log is not open.
+     */
+    // TODO as it's Log specific now.
+    ByteBuffer getEntry(byte[] key);
+
 
 }

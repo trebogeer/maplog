@@ -53,16 +53,6 @@ public interface Loggable extends Closeable, Serializable {
     byte[] appendEntry(ByteBuffer entry, byte[] key) throws IOException;
 
     /**
-     * Gets an entry from the log.
-     *
-     * @param key The index of the entry to get.
-     * @return The entry at the given index, or {@code null} if the entry doesn't exist.
-     * @throws IllegalStateException If the log is not open.
-     */
-    // TODO as it's Log specific now.
-    ByteBuffer getEntry(byte[] key);
-
-    /**
      * Flushes the log to disk.
      *
      * @throws IllegalStateException If the log is not open.

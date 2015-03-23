@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -21,7 +22,7 @@ public class FileLogTest3 {
     public static void main(String... args) {
         ExecutorService es = Executors.newFixedThreadPool(5);
 
-        String path = System.getProperty("user.home") + File.separator + "tmp" + File.separator;
+        String path = System.getProperty("user.home") + File.separator + /*"tmp"*/"nfsshare" + File.separator;
         InputStream fis = FileLogTest1.class.getResourceAsStream("/image");
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try {
@@ -30,6 +31,7 @@ public class FileLogTest3 {
             e.printStackTrace();
         }
 
+        FileWatcher fw = new FileWatcher(null, new File(path).toPath());
         es.execute(new FileWatcher(null, new File(path).toPath()));
         byte[] image = baos.toByteArray();
 
@@ -37,7 +39,7 @@ public class FileLogTest3 {
         FileLogConfig cfg = new FileLogConfig().withDirectory(path).withFlushOnWrite(true).withFileLocks(true);
         try (FileLog fileLog = new FileLog("images1", cfg)) {
             fileLog.open();
-
+            CountDownLatch latch = new CountDownLatch(4);
             for (int ii = 0; ii <= 3; ii++) {
 
                 final int a = ii;
@@ -65,13 +67,17 @@ public class FileLogTest3 {
                         }
 
                     }
+                    latch.countDown();
                     System.out.println("Elapsed time: " + (System.currentTimeMillis() - start));
                 });
 
             }
+
             try {
+                latch.await(3, TimeUnit.HOURS);
+                fw.shutdown();
                 es.shutdown();
-                es.awaitTermination(3, TimeUnit.HOURS);
+                es.awaitTermination(10, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

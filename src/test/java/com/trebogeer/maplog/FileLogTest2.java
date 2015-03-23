@@ -15,7 +15,7 @@ public class FileLogTest2 {
 
     public static void main(String... args) {
 
-        String path = System.getProperty("user.home") + File.separator + "tmp" + File.separator;
+        String path = System.getProperty("user.home") + File.separator + "nfsshare"/*tmp*/ + File.separator;
         InputStream fis = FileLogTest1.class.getResourceAsStream("/image");
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try {

@@ -195,12 +195,6 @@ public class FileSegment extends AbstractSegment {
         }
     }
 
-
-    @Override
-    public ByteBuffer getEntry(byte[] index) {
-        throw new UnsupportedOperationException();
-    }
-
     @Override
     public ByteBuffer getEntry(long position, int offset) {
         assertIsOpen();
