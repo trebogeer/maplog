@@ -83,7 +83,6 @@ public class FileLog extends AbstractLog {
 
     @Override
     protected Segment createSegment(short segmentId) {
-       // return config.isLockFiles() ? /*new FileSegment(this, segmentId)*/ new File0LogSegment(this, segmentId): new NonLockingFileSegment(this, segmentId);
        return new File0LogSegment(this, segmentId);
     }
 

@@ -6,6 +6,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
+import static com.trebogeer.maplog.TestUtils.total_workers;
+import static com.trebogeer.maplog.TestUtils.work_size_per_worker;
+
 /**
  * @author dimav
  *         Date: 3/19/15
@@ -30,9 +33,9 @@ public class FileLogTest2 {
         int crc = Utils.src32_t(image);
         try (FileLog fileLog = new FileLog("images1", new FileLogConfig().withDirectory(path))) {
             fileLog.open();
-            for (int ii = 0; ii < 1; ii++) {
+            for (int ii = 0; ii < 10; ii++) {
                 long start = System.currentTimeMillis();
-                for (int i = 0; i < /*10000000*/5000/*000*/; i++) {
+                for (int i = 0; i < total_workers * work_size_per_worker; i++) {
 
                     ByteBuffer bb = fileLog.getEntry(String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i).getBytes());
                     if (bb == null) {

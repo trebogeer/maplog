@@ -20,13 +20,13 @@ public class FileWatcher implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(FileWatcher.class);
 
-    private final FileSegment segment;
+    private final Segment segment;
 
     private final Path path;
 
     private volatile boolean stop = false;
 
-    public FileWatcher(FileSegment segment, Path path) {
+    public FileWatcher(Segment segment, Path path) {
         this.segment = segment;
         this.path = path;
     }

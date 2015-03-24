@@ -21,7 +21,7 @@ public class File0LogSegment extends AbstractSegment {
 
     private static final Logger logger = LoggerFactory.getLogger("JLOG.F.SEGMENT");
 
-    private static final int INDEX_ENTRY_SIZE = 20;
+    private static final int INDEX_ENTRY_SIZE = 29;
 
     private final FileLog log;
     private final File logFile;
@@ -113,7 +113,7 @@ public class File0LogSegment extends AbstractSegment {
             while (indexReadFileChannel.read(b) != -1) {
                 b.flip();
                 b.get(key);
-                localIndex.put(Utils.toLong(key), new Index.Value(b.getLong(), b.getInt(), id()));
+                localIndex.put(Utils.toLong(key), new Index.Value(b.getLong(), b.getInt(), id(), b.get()));
                 b.rewind();
             }
             // TODO wait on condition to add to global index.
@@ -153,13 +153,13 @@ public class File0LogSegment extends AbstractSegment {
 
 
     @Override
-    public byte[] appendEntry(ByteBuffer entry, byte[] index) {
+    public byte[] appendEntry(ByteBuffer entry, byte[] index, byte flags) {
         assertIsOpen();
         try {
             entry.rewind();
             lock.lock();
             int size = logWriteFileChannel.write(entry);
-            storePosition(index, logWriteFileChannel.position() - size, size);
+            storePosition(index, logWriteFileChannel.position() - size, size, flags);
             isEmpty = false;
         } catch (IOException e) {
             throw new LogException("error appending entry", e);
@@ -172,15 +172,15 @@ public class File0LogSegment extends AbstractSegment {
     /**
      * Stores the position of an entry in the log.
      */
-    protected void storePosition(byte[] index, long position, int offset) {
+    protected void storePosition(byte[] index, long position, int offset, byte flags) {
 
         try {
             long key = MurMur3.MurmurHash3_x64_64(index, 127);
             ByteBuffer buffer = indexBuffer.get().
-                    putLong(key).putLong(position).putInt(offset);
+                    putLong(key).putLong(position).putInt(offset).put(flags).putLong(System.nanoTime());
             buffer.flip();
             indexWriteFileChannel.write(buffer);
-            log().index().put(key, new Index.Value(position, offset, id()));
+            log().index().put(key, new Index.Value(position, offset, id(), flags));
         } catch (IOException e) {
             throw new LogException("error storing position", e);
         }

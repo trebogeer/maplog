@@ -21,10 +21,10 @@ public interface Index<K> {
         final byte flags;
         final short segmentId;
 
-        public Value(long position, int offset, short segmentId) {
+        public Value(long position, int offset, short segmentId, byte flags) {
             this.position = position;
             this.offset = offset;
-            this.flags = 0;
+            this.flags = flags;
             this.segmentId = segmentId;
         }
 

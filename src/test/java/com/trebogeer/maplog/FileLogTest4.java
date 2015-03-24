@@ -23,7 +23,8 @@ public class FileLogTest4 {
                 long start = System.currentTimeMillis();
                 for (int i = 0; i < 10; i++) {
                     byte[] key = ("" + i).getBytes();
-                    fileLog.appendEntry(b, key);
+                    byte flags = ((byte)1 & (byte)8);
+                    fileLog.appendEntry(b, key, flags);
                     b.rewind();
                     ByteBuffer bb = fileLog.getEntry(key);
                     if (bb == null) {

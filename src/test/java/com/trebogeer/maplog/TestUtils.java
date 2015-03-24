@@ -17,6 +17,9 @@ import java.nio.file.attribute.BasicFileAttributes;
  */
 public final class TestUtils {
 
+    static int total_workers = 2;
+    static int work_size_per_worker = 250000;
+
     public static final int BUFFER = 0x2000;
 
     private TestUtils() {

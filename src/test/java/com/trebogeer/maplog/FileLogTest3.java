@@ -10,6 +10,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static com.trebogeer.maplog.TestUtils.total_workers;
+import static com.trebogeer.maplog.TestUtils.work_size_per_worker;
+
 /**
  * @author dimav
  *         Date: 3/20/15
@@ -19,10 +22,15 @@ import java.util.concurrent.TimeUnit;
 // Testing multithreaded writes
 public class FileLogTest3 {
 
-    private static int total_workers = 2;
-    private static int work_size_per_worker = 2500;
-
     public static void main(String... args) {
+
+        int t_w = total_workers;
+        int chunk_size = work_size_per_worker;
+        if (args != null && args.length > 0) {
+            t_w = Integer.valueOf(args[0]);
+            chunk_size = Integer.valueOf(args[1]);
+        }
+
         ExecutorService es = Executors.newFixedThreadPool(5);
 
         String path = System.getProperty("user.home") + File.separator + /*"tmp"*/"nfsshare" + File.separator;
@@ -42,13 +50,13 @@ public class FileLogTest3 {
         FileLogConfig cfg = new FileLogConfig().withDirectory(path).withFlushOnWrite(true).withFileLocks(true);
         try (FileLog fileLog = new FileLog("images1", cfg)) {
             fileLog.open();
-            CountDownLatch latch = new CountDownLatch(total_workers);
-            for (int ii = 0; ii < total_workers; ii++) {
-
+            CountDownLatch latch = new CountDownLatch(t_w);
+            for (int ii = 0; ii < t_w; ii++) {
+                final int chunk = chunk_size;
                 final int a = ii;
                 es.execute(() -> {
                     long start = System.currentTimeMillis();
-                    int chunk = work_size_per_worker;
+
                     for (int i = a * chunk; i < (a * chunk) + chunk; i++) {
                         String rs = "stored_asset1/stored/img/gh/00/00/00/c0/10725c0a63189f34f66c67eb8660e625.img.v1";
                         String rs1 = "nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1";
@@ -64,7 +72,7 @@ public class FileLogTest3 {
 
                         bb.rewind();
                         try {
-                            fileLog.appendEntry(bb, String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", i).getBytes());
+                            fileLog.appendEntry(bb, String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", i).getBytes(), (byte) 6);
                         } catch (IOException e) {
                             e.printStackTrace();
                         }

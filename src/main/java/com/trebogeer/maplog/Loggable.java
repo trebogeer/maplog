@@ -45,12 +45,13 @@ public interface Loggable extends Closeable, Serializable {
      *
      * @param entry The entry to append.
      * @param key The entry key.
+     * @param metaFlags One byte of app level meta flags.
      * @return The appended entry index.
      * @throws IllegalStateException If the log is not open.
      * @throws NullPointerException  If the entry is null.
      * @throws java.io.IOException   If a new segment cannot be opened
      */
-    byte[] appendEntry(ByteBuffer entry, byte[] key) throws IOException;
+    byte[] appendEntry(ByteBuffer entry, byte[] key, byte metaFlags) throws IOException;
 
     /**
      * Flushes the log to disk.

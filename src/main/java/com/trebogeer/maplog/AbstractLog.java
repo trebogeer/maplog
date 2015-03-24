@@ -235,11 +235,11 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     }
 
     @Override
-    public byte[] appendEntry(ByteBuffer entry, byte[] index) throws IOException {
+    public byte[] appendEntry(ByteBuffer entry, byte[] index, byte flags) throws IOException {
         long s = System.nanoTime();
         assertIsOpen();
         checkRollOver();
-        byte[] b = currentSegment.appendEntry(entry, index);
+        byte[] b = currentSegment.appendEntry(entry, index, flags);
         writes.update(System.nanoTime() - s, TimeUnit.NANOSECONDS);
         return b;
     }
