@@ -19,6 +19,9 @@ import java.util.concurrent.TimeUnit;
 // Testing multithreaded writes
 public class FileLogTest3 {
 
+    private static int total_workers = 2;
+    private static int work_size_per_worker = 2500;
+
     public static void main(String... args) {
         ExecutorService es = Executors.newFixedThreadPool(5);
 
@@ -32,20 +35,20 @@ public class FileLogTest3 {
         }
 
         FileWatcher fw = new FileWatcher(null, new File(path).toPath());
-        es.execute(new FileWatcher(null, new File(path).toPath()));
+        es.execute(fw);
         byte[] image = baos.toByteArray();
 
 
         FileLogConfig cfg = new FileLogConfig().withDirectory(path).withFlushOnWrite(true).withFileLocks(true);
         try (FileLog fileLog = new FileLog("images1", cfg)) {
             fileLog.open();
-            CountDownLatch latch = new CountDownLatch(4);
-            for (int ii = 0; ii <= 2; ii++) {
+            CountDownLatch latch = new CountDownLatch(total_workers);
+            for (int ii = 0; ii < total_workers; ii++) {
 
                 final int a = ii;
                 es.execute(() -> {
                     long start = System.currentTimeMillis();
-                    int chunk = 2500000;
+                    int chunk = work_size_per_worker;
                     for (int i = a * chunk; i < (a * chunk) + chunk; i++) {
                         String rs = "stored_asset1/stored/img/gh/00/00/00/c0/10725c0a63189f34f66c67eb8660e625.img.v1";
                         String rs1 = "nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1";
@@ -54,9 +57,9 @@ public class FileLogTest3 {
                         //   byte data[] = s.getBytes();
                         int l = data.length;
 
-                        int totalSize = 4 + l;
-                        ByteBuffer bb = ByteBuffer.allocate(totalSize);
-                        bb.putInt(l);
+                       // int totalSize = 4 + l;
+                        ByteBuffer bb = ByteBuffer.allocate(l);
+                        //bb.putInt(l);
                         bb.put(data);
 
                         bb.rewind();
@@ -74,7 +77,7 @@ public class FileLogTest3 {
             }
 
             try {
-                latch.await(3, TimeUnit.HOURS);
+                latch.await(24, TimeUnit.HOURS);
                 fw.shutdown();
                 es.shutdown();
                 es.awaitTermination(10, TimeUnit.MINUTES);

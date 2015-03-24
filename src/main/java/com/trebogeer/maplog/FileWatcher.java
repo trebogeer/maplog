@@ -9,7 +9,7 @@ import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author dimav
@@ -24,7 +24,7 @@ public class FileWatcher implements Runnable {
 
     private final Path path;
 
-    private AtomicBoolean stop = new AtomicBoolean(false);
+    private volatile boolean stop = false;
 
     public FileWatcher(FileSegment segment, Path path) {
         this.segment = segment;
@@ -41,30 +41,33 @@ public class FileWatcher implements Runnable {
                     StandardWatchEventKinds.ENTRY_DELETE);
 
             // loop forever to watch directory
-            while (!stop.get()) {
+            while (!this.stop) {
+              //  System.out.println(stop);
                 WatchKey watchKey;
-                watchKey = watchService.take(); // this call is blocking until events are present
+                // this call is blocking until events are present or timeout happens
+                watchKey = watchService.poll(100, TimeUnit.MILLISECONDS);
+                if (watchKey != null) {
+                    // poll for file system events on the WatchKey
+                    for (final WatchEvent<?> event : watchKey.pollEvents()) {
+                        String ename = event.kind().name();
+                        if (ename.equals(StandardWatchEventKinds.ENTRY_MODIFY.name())) {
+                            // logger.info(event.kind().name());
+                            // logger.info(event.count() + "");
+                            // logger.info(event.context() + "");
+                        } else if (ename.equals(StandardWatchEventKinds.ENTRY_CREATE)) {
 
-                // poll for file system events on the WatchKey
-                for (final WatchEvent<?> event : watchKey.pollEvents()) {
-                    String ename = event.kind().name();
-                    if (ename.equals(StandardWatchEventKinds.ENTRY_MODIFY.name())) {
-                       // logger.info(event.kind().name());
-                       // logger.info(event.count() + "");
-                       // logger.info(event.context() + "");
-                    } else if (ename.equals(StandardWatchEventKinds.ENTRY_CREATE)) {
-
-                    } else /*DELETE EVENT*/{
-                        logger.debug(event.kind().name());
+                        } else /*DELETE EVENT*/ {
+                            logger.debug(event.kind().name());
+                        }
                     }
-                }
 
-                // if the watched directed gets deleted, get out of run method
-                if (!watchKey.reset()) {
-                    logger.info("No longer valid.");
-                    watchKey.cancel();
-                    watchService.close();
-                    break;
+                    // if the watched directed gets deleted, get out of run method
+                    if (!watchKey.reset()) {
+                        logger.info("No longer valid.");
+                        watchKey.cancel();
+                        watchService.close();
+                        break;
+                    }
                 }
             }
 
@@ -75,7 +78,7 @@ public class FileWatcher implements Runnable {
         }
     }
 
-    public void shutdown() {
-        this.stop.set(true);
+    public synchronized void shutdown() {
+        this.stop = true;
     }
 }
