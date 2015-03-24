@@ -32,10 +32,14 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
 
     private static final Logger logger = LoggerFactory.getLogger("JLOG.F");
 
+    // TODO move to config
+    private static final String jmx_tld = System.getProperty("jlog.jmx.tld", "jlog.monitor");
+
     public static final MetricRegistry REGISTRY = new MetricRegistry();
-    public static final JmxReporter reporter = JmxReporter.forRegistry(REGISTRY).inDomain("jlog.monitor").build();
-    static final Slf4jReporter sl4jreproter = Slf4jReporter.forRegistry(REGISTRY).convertDurationsTo(TimeUnit.MICROSECONDS).outputTo(logger).convertRatesTo(TimeUnit.SECONDS).build();
+    private static final JmxReporter reporter = JmxReporter.forRegistry(REGISTRY).inDomain(jmx_tld).build();
+    private static final Slf4jReporter sl4jreproter = Slf4jReporter.forRegistry(REGISTRY).convertDurationsTo(TimeUnit.MICROSECONDS).outputTo(logger).convertRatesTo(TimeUnit.SECONDS).build();
     private static com.codahale.metrics.Timer writes = REGISTRY.timer("jlog.writes");
+    private static com.codahale.metrics.Timer reads = REGISTRY.timer("jlog.reads");
 
     private LogConfig config;
     protected final TreeMap<Short, Segment> segments = new TreeMap<>();
@@ -129,7 +133,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
         assertIsNotOpen();
         if (config.isMertics()) {
             reporter.start();
-            sl4jreproter.start(1, TimeUnit.SECONDS);
+            sl4jreproter.start(10, TimeUnit.SECONDS);
         }
 
         long start = System.currentTimeMillis();
@@ -247,11 +251,14 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     @Override
     public ByteBuffer getEntry(byte[] index) {
         assertIsOpen();
+        ByteBuffer result = null;
+        long start = System.nanoTime();
         Index.Value v = index().get(MurMur3.MurmurHash3_x64_64(index, 127));
         if (v != null) {
-            return segment(v.segmentId).getEntry(v.position, v.offset);
+            result = segment(v.segmentId).getEntry(v.position, v.offset);
         }
-        return null;
+        reads.update(System.nanoTime() - start, TimeUnit.NANOSECONDS);
+        return result;
     }
 
 

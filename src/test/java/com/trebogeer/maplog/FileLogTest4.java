@@ -13,7 +13,7 @@ public class FileLogTest4 {
 
     public static void main(String... args) {
 
-        String path = System.getProperty("user.home") + File.separator + /*"nfsshare"*/"tmp4" + File.separator;
+        String path = System.getProperty("user.home") + File.separator + "nfsshare"/*"tmp4"*/ + File.separator;
         String body = "yrtd_prod_501206901?hei=624&wid=624&op_sharpen=1";
         int crc = Utils.src32_t(body.getBytes());
         ByteBuffer b = ByteBuffer.wrap(body.getBytes());
@@ -40,13 +40,17 @@ public class FileLogTest4 {
 
                 }
 
-                System.out.println("Elapsed time: " + (System.currentTimeMillis() - start));
+                System.out.println("Elapsed time (ms): " + (System.currentTimeMillis() - start));
             }
 
         } catch (IOException e) {
             e.printStackTrace();
-        }finally {
-            new File(path).delete();
+        } finally {
+            try {
+                TestUtils.deleteDir(path);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
