@@ -32,7 +32,7 @@ public class FileLogTest2 {
             fileLog.open();
             for (int ii = 0; ii < 1; ii++) {
                 long start = System.currentTimeMillis();
-                for (int i = 0; i < 10000000; i++) {
+                for (int i = 0; i < /*10000000*/5000000; i++) {
 
                     ByteBuffer bb = fileLog.getEntry(String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i).getBytes());
                     if (bb == null) {

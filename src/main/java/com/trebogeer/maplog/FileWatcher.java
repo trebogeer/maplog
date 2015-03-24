@@ -49,9 +49,9 @@ public class FileWatcher implements Runnable {
                 for (final WatchEvent<?> event : watchKey.pollEvents()) {
                     String ename = event.kind().name();
                     if (ename.equals(StandardWatchEventKinds.ENTRY_MODIFY.name())) {
-                        logger.info(event.kind().name());
-                        logger.info(event.count() + "");
-                        logger.info(event.context() + "");
+                       // logger.info(event.kind().name());
+                       // logger.info(event.count() + "");
+                       // logger.info(event.context() + "");
                     } else if (ename.equals(StandardWatchEventKinds.ENTRY_CREATE)) {
 
                     } else /*DELETE EVENT*/{

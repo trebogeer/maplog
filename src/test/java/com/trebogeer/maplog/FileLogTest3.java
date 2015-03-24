@@ -40,7 +40,7 @@ public class FileLogTest3 {
         try (FileLog fileLog = new FileLog("images1", cfg)) {
             fileLog.open();
             CountDownLatch latch = new CountDownLatch(4);
-            for (int ii = 0; ii <= 3; ii++) {
+            for (int ii = 0; ii <= 2; ii++) {
 
                 final int a = ii;
                 es.execute(() -> {

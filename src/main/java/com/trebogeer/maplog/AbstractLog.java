@@ -1,5 +1,8 @@
 package com.trebogeer.maplog;
 
+import com.codahale.metrics.JmxReporter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Slf4jReporter;
 import com.trebogeer.maplog.index.ConcurrentHashMapIndex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +30,13 @@ import java.util.concurrent.TimeUnit;
  */
 public abstract class AbstractLog implements Loggable, Log<Long> {
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    private static final Logger logger = LoggerFactory.getLogger("JLOG.F");
+
+    public static final MetricRegistry REGISTRY = new MetricRegistry();
+    public static final JmxReporter reporter = JmxReporter.forRegistry(REGISTRY).inDomain("jlog.monitor").build();
+    static final Slf4jReporter sl4jreproter = Slf4jReporter.forRegistry(REGISTRY).convertDurationsTo(TimeUnit.MICROSECONDS).outputTo(logger).convertRatesTo(TimeUnit.SECONDS).build();
+    private static com.codahale.metrics.Timer writes = REGISTRY.timer("jlog.writes");
+
     private LogConfig config;
     protected final TreeMap<Short, Segment> segments = new TreeMap<>();
     protected final Index<Long> index = new ConcurrentHashMapIndex();
@@ -118,6 +127,11 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     @Override
     public synchronized void open() throws IOException {
         assertIsNotOpen();
+        if (config.isMertics()) {
+            reporter.start();
+            sl4jreproter.start(1, TimeUnit.SECONDS);
+        }
+
         long start = System.currentTimeMillis();
         // having concurrent load does not make much sense on spinning drive. Sequential reads work better.
         // Setting concurrency level to one for now.
@@ -218,9 +232,12 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
 
     @Override
     public byte[] appendEntry(ByteBuffer entry, byte[] index) throws IOException {
+        long s = System.nanoTime();
         assertIsOpen();
         checkRollOver();
-        return currentSegment.appendEntry(entry, index);
+        byte[] b = currentSegment.appendEntry(entry, index);
+        writes.update(System.nanoTime() - s, TimeUnit.NANOSECONDS);
+        return b;
     }
 
     /**
@@ -302,6 +319,10 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
             segment.close();
         segments.clear();
         currentSegment = null;
+        if (config.isMertics()) {
+            reporter.stop();
+            sl4jreproter.stop();
+        }
         logger.info("Closed log file [{}]", name);
     }
 

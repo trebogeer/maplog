@@ -74,7 +74,7 @@ public class FileLog extends AbstractLog {
                 String st = file.getName().substring(file.getName().lastIndexOf('-') + 1);
                 short id = Short.valueOf(st.substring(0, st.lastIndexOf('.')));
                 if (!segments.containsKey(id)) {
-                    segments.put(id, new FileSegment(this, id));
+                    segments.put(id, new File0LogSegment(this, id));
                 }
             }
         }
@@ -83,7 +83,8 @@ public class FileLog extends AbstractLog {
 
     @Override
     protected Segment createSegment(short segmentId) {
-        return config.isLockFiles() ? new FileSegment(this, segmentId) : new NonLockingFileSegment(this, segmentId);
+       // return config.isLockFiles() ? /*new FileSegment(this, segmentId)*/ new File0LogSegment(this, segmentId): new NonLockingFileSegment(this, segmentId);
+       return new File0LogSegment(this, segmentId);
     }
 
     @Override
@@ -101,7 +102,7 @@ public class FileLog extends AbstractLog {
         initPartitionInfo();
         super.open();
         final FileLog f = this;
-        Runtime.getRuntime().addShutdownHook(new Thread() {
+      /*  Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
                 try {
@@ -110,7 +111,7 @@ public class FileLog extends AbstractLog {
                     logger.error("Failed to close log file on jvm shutdown.", e);
                 }
             }
-        });
+        });*/
     }
 
 }

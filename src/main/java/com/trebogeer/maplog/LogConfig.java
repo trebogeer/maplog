@@ -11,13 +11,15 @@ public class LogConfig {
     private static final String LOG_SEGMENT_SIZE = "jlog.segment.size";
     private static final String LOG_SEGMENT_INTERVAL = "jlog.segment.interval";
     private static final String LOG_FLUSH_ON_WRITE = "jlog.flush.on-write";
+    private static final String LOG_METRICS = "jlog.metrics";
     private static final String LOG_FLUSH_INTERVAL = "jlog.flush.interval";
 
     private static final String DEFAULT_CONFIGURATION = "log-defaults";
     private static final String CONFIGURATION = "log";
 
     private int segmentSize = Integer.getInteger(LOG_SEGMENT_SIZE, Integer.MAX_VALUE);
-    private boolean flushOnWrite = Boolean.getBoolean(LOG_FLUSH_ON_WRITE);
+    private boolean flushOnWrite = System.getProperty(LOG_FLUSH_ON_WRITE) == null || Boolean.getBoolean(LOG_FLUSH_ON_WRITE);
+    private boolean mertics = System.getProperty(LOG_METRICS) == null || Boolean.getBoolean(LOG_METRICS);
 
 
     // TODO implement
@@ -94,7 +96,7 @@ public class LogConfig {
      * @param flushOnWrite Whether to flush the log to disk on every write.
      */
     public void setFlushOnWrite(boolean flushOnWrite) {
-         this.flushOnWrite = flushOnWrite;
+        this.flushOnWrite = flushOnWrite;
     }
 
     /**
@@ -124,7 +126,7 @@ public class LogConfig {
      * @throws java.lang.IllegalArgumentException If the flush interval is not positive
      */
     public void setFlushInterval(long flushInterval) {
-          throw new UnsupportedOperationException("not implemented yet");
+        throw new UnsupportedOperationException("not implemented yet");
     }
 
     /**
@@ -148,5 +150,16 @@ public class LogConfig {
         return this;
     }
 
+    public boolean isMertics() {
+        return mertics;
+    }
 
+    public void setMertics(boolean mertics) {
+        this.mertics = mertics;
+    }
+
+    public LogConfig withMetrics(boolean metrics) {
+        setMertics(metrics);
+        return this;
+    }
 }
