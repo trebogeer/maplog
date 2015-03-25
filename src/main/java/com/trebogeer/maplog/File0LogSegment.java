@@ -8,9 +8,13 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.concurrent.locks.ReentrantLock;
+
+import static java.nio.file.StandardOpenOption.*;
+import static java.nio.file.StandardOpenOption.CREATE;
 
 /**
  * @author dimav
@@ -19,7 +23,7 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class File0LogSegment extends AbstractSegment {
 
-    private static final Logger logger = LoggerFactory.getLogger("JLOG.F.SEGMENT");
+    protected static final Logger logger = LoggerFactory.getLogger("JLOG.F.SEGMENT");
 
     private static final int INDEX_ENTRY_SIZE = 29;
 
@@ -34,6 +38,7 @@ public class File0LogSegment extends AbstractSegment {
     //protected FileChannel indexFileChannel;
     protected FileChannel indexReadFileChannel;
     protected FileChannel indexWriteFileChannel;
+    protected FileChannel metaFileChannel;
     protected boolean isEmpty = true;
     protected ReentrantLock lock = new ReentrantLock();
     protected final ThreadLocal<ByteBuffer> indexBuffer = new ThreadLocal<ByteBuffer>() {
@@ -71,37 +76,42 @@ public class File0LogSegment extends AbstractSegment {
     }
 
     @Override
-    public synchronized void open() throws IOException {
+    public void open() throws IOException {
         assertIsNotOpen();
-        if (!logFile.getParentFile().exists()) {
-            logFile.getParentFile().mkdirs();
-        }
-
-        if (!metadataFile.exists()) {
-            timestamp = System.currentTimeMillis();
-            try (RandomAccessFile metaFile = new RandomAccessFile(metadataFile, "rw")) {
-                metaFile.writeShort(super.id);
-                metaFile.writeLong(timestamp);
-            }
-        } else {
-            try (RandomAccessFile metaFile = new RandomAccessFile(metadataFile, "r")) {
-                short metaFileIndex = metaFile.readShort();
+        // TODO rethink to minimize IO
+        metaFileChannel = FileChannel.open(this.metadataFile.toPath(), CREATE, READ, WRITE);
+        FileLock mfl = null;
+        try {
+            ByteBuffer meta = ByteBuffer.allocate(10);
+            if (metaFileChannel.size() == 0 && (mfl = metaFileChannel.tryLock(0, 16, false)) != null) {
+                timestamp = System.nanoTime();
+                meta.putShort(super.id);
+                meta.putLong(timestamp);
+                metaFileChannel.write(meta);
+            } else {
+                // TODO need to lock here
+                metaFileChannel.read(meta);
+                short metaFileIndex = meta.getShort();
                 if (metaFileIndex != super.id) {
                     throw new LogException("Segment metadata out of sync");
                 }
-                timestamp = metaFile.readLong();
+                timestamp = meta.getLong();
+            }
+        } finally {
+            if (mfl != null) {
+                mfl.close();
             }
         }
         // write channel in append only mode
 
-        logWriteFileChannel = FileChannel.open(this.logFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        logReadFileChannel = FileChannel.open(this.logFile.toPath(), StandardOpenOption.READ);
+        logWriteFileChannel = FileChannel.open(this.logFile.toPath(), CREATE, APPEND);
+        logReadFileChannel = FileChannel.open(this.logFile.toPath(), READ);
 
         logWriteFileChannel.position(logWriteFileChannel.size());
         logReadFileChannel.position(logReadFileChannel.size());
 
-        indexWriteFileChannel = FileChannel.open(this.indexFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        indexReadFileChannel = FileChannel.open(this.indexFile.toPath(), StandardOpenOption.READ);
+        indexWriteFileChannel = FileChannel.open(this.indexFile.toPath(), CREATE, APPEND);
+        indexReadFileChannel = FileChannel.open(this.indexFile.toPath(), READ);
 
         long indexFileSize = indexReadFileChannel.size();
         if (indexFileSize != 0) {
@@ -172,6 +182,7 @@ public class File0LogSegment extends AbstractSegment {
     /**
      * Stores the position of an entry in the log.
      */
+
     protected int storePosition(byte[] index, long position, int offset, byte flags) {
 
         try {
