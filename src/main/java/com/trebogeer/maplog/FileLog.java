@@ -74,7 +74,7 @@ public class FileLog extends AbstractLog {
                 String st = file.getName().substring(file.getName().lastIndexOf('-') + 1);
                 short id = Short.valueOf(st.substring(0, st.lastIndexOf('.')));
                 if (!segments.containsKey(id)) {
-                    segments.put(id, new File0LogSegment(this, id));
+                    segments.put(id, createSegment(id));
                 }
             }
         }
@@ -83,7 +83,7 @@ public class FileLog extends AbstractLog {
 
     @Override
     protected Segment createSegment(short segmentId) {
-       return new File0LogSegment(this, segmentId);
+       return config.isLockFiles()?new LockingLogSegment(this, segmentId):new File0LogSegment(this, segmentId);
     }
 
     @Override

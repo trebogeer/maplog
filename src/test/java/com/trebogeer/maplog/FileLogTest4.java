@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import static com.trebogeer.maplog.TestUtils.utlogger;
+
 /**
  * @author dimav
  *         Date: 3/23/15
@@ -28,29 +30,29 @@ public class FileLogTest4 {
                     b.rewind();
                     ByteBuffer bb = fileLog.getEntry(key);
                     if (bb == null) {
-                        System.out.println("Entry is null for key : " + i);
+                        utlogger.info("Entry is null for key : " + i);
                         continue;
                     }
                     if (Utils.src32_t(bb) != crc) {
-                        System.out.println("Corrupted entry is detected for entry : " + i);
+                        utlogger.info("Corrupted entry is detected for entry : " + i);
                     }
 
                     byte[] s = new byte[bb.limit()];
                     bb.get(s);
-                    System.out.println(new String(s));
+                    utlogger.info(new String(s));
 
                 }
 
-                System.out.println("Elapsed time (ms): " + (System.currentTimeMillis() - start));
+                utlogger.info("Elapsed time (ms): " + (System.currentTimeMillis() - start));
             }
 
         } catch (IOException e) {
-            e.printStackTrace();
+            utlogger.error("IO", e);
         } finally {
             try {
                 TestUtils.deleteDir(path);
             } catch (IOException e) {
-                e.printStackTrace();
+                utlogger.error("IO - cleanup", e);
             }
         }
     }

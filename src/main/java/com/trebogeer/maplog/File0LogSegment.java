@@ -35,7 +35,7 @@ public class File0LogSegment extends AbstractSegment {
     protected FileChannel indexReadFileChannel;
     protected FileChannel indexWriteFileChannel;
     protected boolean isEmpty = true;
-    private static ReentrantLock lock = new ReentrantLock();
+    protected ReentrantLock lock = new ReentrantLock();
     protected final ThreadLocal<ByteBuffer> indexBuffer = new ThreadLocal<ByteBuffer>() {
 
         @Override
@@ -172,15 +172,16 @@ public class File0LogSegment extends AbstractSegment {
     /**
      * Stores the position of an entry in the log.
      */
-    protected void storePosition(byte[] index, long position, int offset, byte flags) {
+    protected int storePosition(byte[] index, long position, int offset, byte flags) {
 
         try {
             long key = MurMur3.MurmurHash3_x64_64(index, 127);
             ByteBuffer buffer = indexBuffer.get().
                     putLong(key).putLong(position).putInt(offset).put(flags).putLong(System.nanoTime());
             buffer.flip();
-            indexWriteFileChannel.write(buffer);
+            int size = indexWriteFileChannel.write(buffer);
             log().index().put(key, new Index.Value(position, offset, id(), flags));
+            return size;
         } catch (IOException e) {
             throw new LogException("error storing position", e);
         }

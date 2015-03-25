@@ -10,7 +10,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static com.trebogeer.maplog.TestUtils.key_template;
 import static com.trebogeer.maplog.TestUtils.total_workers;
+import static com.trebogeer.maplog.TestUtils.utlogger;
 import static com.trebogeer.maplog.TestUtils.work_size_per_worker;
 
 /**
@@ -58,9 +60,6 @@ public class FileLogTest3 {
                     long start = System.currentTimeMillis();
 
                     for (int i = a * chunk; i < (a * chunk) + chunk; i++) {
-                        String rs = "stored_asset1/stored/img/gh/00/00/00/c0/10725c0a63189f34f66c67eb8660e625.img.v1";
-                        String rs1 = "nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1";
-                        String s = "http://abcdefght.host.asd.s.com:8080/somesys/job/lskdfjl.lsdkfj.lsdkf.sdfk/2/cfsdfe" + i + "\n";
                         byte data[] = image;
                         //   byte data[] = s.getBytes();
                         int l = data.length;
@@ -72,14 +71,14 @@ public class FileLogTest3 {
 
                         bb.rewind();
                         try {
-                            fileLog.appendEntry(bb, String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", i).getBytes(), (byte) 6);
+                            fileLog.appendEntry(bb, String.format(key_template, i).getBytes(), (byte) 6);
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
 
                     }
                     latch.countDown();
-                    System.out.println("Elapsed time: " + (System.currentTimeMillis() - start));
+                    utlogger.info("Elapsed time: " + (System.currentTimeMillis() - start));
                 });
 
             }
@@ -93,7 +92,7 @@ public class FileLogTest3 {
                 e.printStackTrace();
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            utlogger.error("IO", e);
         }
     }
 }

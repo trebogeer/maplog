@@ -6,7 +6,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
+import static com.trebogeer.maplog.TestUtils.key_template;
 import static com.trebogeer.maplog.TestUtils.total_workers;
+import static com.trebogeer.maplog.TestUtils.utlogger;
 import static com.trebogeer.maplog.TestUtils.work_size_per_worker;
 
 /**
@@ -33,28 +35,28 @@ public class FileLogTest2 {
         int crc = Utils.src32_t(image);
         try (FileLog fileLog = new FileLog("images1", new FileLogConfig().withDirectory(path))) {
             fileLog.open();
-            for (int ii = 0; ii < 10; ii++) {
+            for (int ii = 0; ii < 1; ii++) {
                 long start = System.currentTimeMillis();
                 for (int i = 0; i < total_workers * work_size_per_worker; i++) {
-
-                    ByteBuffer bb = fileLog.getEntry(String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i).getBytes());
+                    String key = String.format(key_template, i);
+                    ByteBuffer bb = fileLog.getEntry(key.getBytes());
                     if (bb == null) {
-                        System.out.println("Entry is null for key : " + String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i));
+                        utlogger.info("Entry is null for key : " + key);
                         continue;
                     }
                     if (Utils.src32_t(bb) != crc) {
-                        System.out.println("Corrupted entry is detected for entry : " + String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", (ii + 1) * i));
+                        utlogger.info("Corrupted entry is detected for entry : " + key);
                     }
                 }
 
-                System.out.println("Elapsed time: " + (System.currentTimeMillis() - start));
+                utlogger.info("Elapsed time: " + (System.currentTimeMillis() - start));
             }
-            ByteBuffer b = fileLog.getEntry(String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", 20).getBytes());
-            byte[] s = new byte[b.limit()];
-            b.get(s);
-            System.out.println(new String(s));
+//            ByteBuffer b = fileLog.getEntry(String.format("nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1", 20).getBytes());
+//            byte[] s = new byte[b.limit()];
+//            b.get(s);
+//            System.out.println(new String(s));
         } catch (IOException e) {
-            System.out.println(e.getMessage());
+            utlogger.error("IO", e.getMessage());
         }
     }
 }
