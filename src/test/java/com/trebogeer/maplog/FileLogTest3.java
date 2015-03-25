@@ -45,11 +45,12 @@ public class FileLogTest3 {
         }
 
         FileWatcher fw = new FileWatcher(null, new File(path).toPath());
-        es.execute(fw);
+      //  es.execute(fw);
         byte[] image = baos.toByteArray();
 
 
-        FileLogConfig cfg = new FileLogConfig().withDirectory(path).withFlushOnWrite(true).withFileLocks(true);
+        FileLogConfig cfg = new FileLogConfig().withDirectory(path)
+                .withFlushOnWrite(true).withFileLocks(true).withSegmentSize(512 * 1024 * 1024);
         try (FileLog fileLog = new FileLog("images1", cfg)) {
             fileLog.open();
             CountDownLatch latch = new CountDownLatch(t_w);
