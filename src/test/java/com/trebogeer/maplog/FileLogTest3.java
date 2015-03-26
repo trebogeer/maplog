@@ -11,6 +11,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static com.trebogeer.maplog.TestUtils.key_template;
+import static com.trebogeer.maplog.TestUtils.segment_size;
 import static com.trebogeer.maplog.TestUtils.total_workers;
 import static com.trebogeer.maplog.TestUtils.utlogger;
 import static com.trebogeer.maplog.TestUtils.work_size_per_worker;
@@ -50,7 +51,7 @@ public class FileLogTest3 {
 
 
         FileLogConfig cfg = new FileLogConfig().withDirectory(path)
-                .withFlushOnWrite(true).withFileLocks(true).withSegmentSize(512 * 1024 * 1024);
+                .withFlushOnWrite(true).withFileLocks(true).withSegmentSize(segment_size);
         try (FileLog fileLog = new FileLog("images1", cfg)) {
             fileLog.open();
             CountDownLatch latch = new CountDownLatch(t_w);

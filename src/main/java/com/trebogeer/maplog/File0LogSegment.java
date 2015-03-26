@@ -32,10 +32,8 @@ public class File0LogSegment extends AbstractSegment {
     private final File indexFile;
     private final File metadataFile;
     private long timestamp;
-    // protected FileChannel logFileChannel;
     protected FileChannel logReadFileChannel;
     protected FileChannel logWriteFileChannel;
-    //protected FileChannel indexFileChannel;
     protected FileChannel indexReadFileChannel;
     protected FileChannel indexWriteFileChannel;
     protected FileChannel metaFileChannel;

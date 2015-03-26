@@ -65,7 +65,6 @@ public class FileLog extends AbstractLog {
     protected Collection<Segment> loadSegments() {
         Map<Short, Segment> segments = new HashMap<>();
         base.getAbsoluteFile().getParentFile().mkdirs();
-        base.mkdirs();
         logger.info("Logging data to {}.", name);
         if (partition != null) {
             logger.info("Space available {} GB", partition.getUsableSpace() / 1024 / 1024 / 1024d);
