@@ -1,5 +1,7 @@
 package com.trebogeer.maplog;
 
+import com.sun.nio.file.SensitivityWatchEventModifier;
+import com.trebogeer.maplog.fsws.PollingWatchService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,6 +12,8 @@ import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.concurrent.TimeUnit;
+
+import static java.nio.file.StandardWatchEventKinds.*;
 
 /**
  * @author dimav
@@ -26,26 +30,34 @@ public class FileWatcher implements Runnable {
 
     private volatile boolean stop = false;
 
-    public FileWatcher(Segment segment, Path path) {
+    private final boolean fsSupport;
+
+    public FileWatcher(Segment segment, Path path, boolean fsSupport) {
         this.segment = segment;
         this.path = path;
+        this.fsSupport = fsSupport;
     }
 
     @Override
     public void run() {
         try {
-            WatchService watchService = path.getFileSystem().newWatchService();
-            path.register(watchService,
-                    StandardWatchEventKinds.ENTRY_MODIFY,
-                    StandardWatchEventKinds.ENTRY_CREATE,
-                    StandardWatchEventKinds.ENTRY_DELETE);
-
+            WatchService watchService;
+            if (fsSupport) {
+                watchService = path.getFileSystem().newWatchService();
+                path.register(watchService, ENTRY_MODIFY, ENTRY_CREATE, ENTRY_DELETE);
+            } else {
+                PollingWatchService pollingWatchService = new PollingWatchService();
+                WatchEvent.Kind[] events = {ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY};
+                WatchEvent.Modifier modifier = SensitivityWatchEventModifier.MEDIUM;
+                pollingWatchService.register(this.path, events, modifier);
+                watchService = pollingWatchService;
+            }
             // loop forever to watch directory
             while (!this.stop) {
-              //  System.out.println(stop);
+                //  System.out.println(stop);
                 WatchKey watchKey;
                 // this call is blocking until events are present or timeout happens
-                watchKey = watchService.poll(100, TimeUnit.MILLISECONDS);
+                watchKey = watchService.poll(1000, TimeUnit.MILLISECONDS);
                 if (watchKey != null) {
                     // poll for file system events on the WatchKey
                     for (final WatchEvent<?> event : watchKey.pollEvents()) {

@@ -3,6 +3,7 @@ package com.trebogeer.maplog;
 import com.codahale.metrics.JmxReporter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Slf4jReporter;
+import com.trebogeer.maplog.hash.Hash;
 import com.trebogeer.maplog.index.ConcurrentHashMapIndex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,9 +49,11 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     private short nextSegmentId;
     private long lastFlush;
     protected String name;
+    protected final Hash hash;
 
     protected AbstractLog(LogConfig config) {
         this.config = config.copy();
+        this.hash = config.getHashSupplier().get();
     }
 
     @Override
@@ -215,6 +218,10 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
         return currentSegment != null;
     }
 
+    Hash hash() {
+        return this.hash;
+    }
+
     @Override
     public long size() {
         assertIsOpen();
@@ -253,7 +260,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
         assertIsOpen();
         ByteBuffer result = null;
         long start = System.nanoTime();
-        Index.Value v = index().get(MurMur3.MurmurHash3_x64_64(index, 127));
+        Index.Value v = index().get(hash.hash(index));
         if (v != null) {
             result = segment(v.segmentId).getEntry(v.position, v.offset);
         }

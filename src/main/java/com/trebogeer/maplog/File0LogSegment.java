@@ -1,5 +1,6 @@
 package com.trebogeer.maplog;
 
+import com.trebogeer.maplog.hash.MurMur3;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -184,7 +185,7 @@ public class File0LogSegment extends AbstractSegment {
     protected int storePosition(byte[] index, long position, int offset, byte flags) {
 
         try {
-            long key = MurMur3.MurmurHash3_x64_64(index, 127);
+            long key = log.hash.hash(index);
             ByteBuffer buffer = indexBuffer.get().
                     putLong(key).putLong(position).putInt(offset).put(flags).putLong(System.nanoTime());
             buffer.flip();

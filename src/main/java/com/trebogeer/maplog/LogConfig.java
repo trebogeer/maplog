@@ -1,5 +1,10 @@
 package com.trebogeer.maplog;
 
+import com.trebogeer.maplog.hash.Hash;
+import com.trebogeer.maplog.hash.MurMur3;
+
+import java.util.function.Supplier;
+
 /**
  * @author dimav
  *         Date: 3/16/15
@@ -20,7 +25,7 @@ public class LogConfig {
     private int segmentSize = Integer.getInteger(LOG_SEGMENT_SIZE, Integer.MAX_VALUE);
     private boolean flushOnWrite = System.getProperty(LOG_FLUSH_ON_WRITE) == null || Boolean.getBoolean(LOG_FLUSH_ON_WRITE);
     private boolean mertics = System.getProperty(LOG_METRICS) == null || Boolean.getBoolean(LOG_METRICS);
-
+    private Supplier<Hash> hashSupplier = MurMur3.murmur3();
 
     // TODO implement
     public LogConfig copy() {
@@ -160,6 +165,19 @@ public class LogConfig {
 
     public LogConfig withMetrics(boolean metrics) {
         setMertics(metrics);
+        return this;
+    }
+
+    public Supplier<Hash> getHashSupplier() {
+        return hashSupplier;
+    }
+
+    public void setHashSupplier(Supplier<Hash> hashSupplier) {
+        this.hashSupplier = hashSupplier;
+    }
+
+    public LogConfig withMetrics(Supplier<Hash> hashSupplier) {
+        setHashSupplier(hashSupplier);
         return this;
     }
 }

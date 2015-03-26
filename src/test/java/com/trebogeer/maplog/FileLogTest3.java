@@ -45,7 +45,7 @@ public class FileLogTest3 {
             e.printStackTrace();
         }
 
-        FileWatcher fw = new FileWatcher(null, new File(path).toPath());
+        FileWatcher fw = new FileWatcher(null, new File(path).toPath(), false);
       //  es.execute(fw);
         byte[] image = baos.toByteArray();
 

@@ -1,4 +1,4 @@
-package com.trebogeer.maplog;
+package com.trebogeer.maplog.hash;
 
 
 /**
@@ -27,6 +27,8 @@ package com.trebogeer.maplog;
  *  Yonik Seeley and was placed into the public domain per
  *  https://github.com/yonik/java_util/blob/master/src/util/hash/MurmurHash3.java.
  */
+
+import java.util.function.Supplier;
 
 /**
  * @author dimav
@@ -314,8 +316,12 @@ public final class MurMur3 {
         return (int) (MurmurHash3_x64_128(key, seed)[0] >>> 32);
     }
 
-    public int hash(byte[] payload) {
+    public static int hash(byte[] payload) {
         return MurmurHash3_x64_32(payload, 9001);
+    }
+
+    public static Supplier<Hash> murmur3() {
+        return () -> bytes -> MurmurHash3_x64_64(bytes, 127);
     }
 
 

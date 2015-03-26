@@ -19,7 +19,7 @@ import static com.trebogeer.maplog.TestUtils.work_size_per_worker;
  */
 public class WatchDirTest {
 
-    public static void main(String... args){
+    public static void main(String... args) {
         try {
             int t_w = total_workers;
             int chunk_size = work_size_per_worker;
@@ -39,7 +39,7 @@ public class WatchDirTest {
                 e.printStackTrace();
             }
 
-            FileWatcher fw = new FileWatcher(null, new File(path).toPath());
+            FileWatcher fw = new FileWatcher(null, new File(path).toPath(), false);
             es.execute(fw);
             es.shutdown();
             es.awaitTermination(15, TimeUnit.MINUTES);

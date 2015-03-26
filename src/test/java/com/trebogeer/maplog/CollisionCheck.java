@@ -1,5 +1,7 @@
 package com.trebogeer.maplog;
 
+import com.trebogeer.maplog.hash.MurMur3;
+
 import java.util.HashSet;
 import java.util.Set;
 
