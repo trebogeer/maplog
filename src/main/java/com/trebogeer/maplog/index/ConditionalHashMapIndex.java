@@ -4,19 +4,24 @@ import com.trebogeer.maplog.Index;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
 
 /**
  * @author dimav
  *         Date: 3/18/15
  *         Time: 10:19 AM
  */
-public class ConcurrentHashMapIndex implements Index<Long> {
+public class ConditionalHashMapIndex implements Index<Long> {
 
-    private final ConcurrentHashMap<Long, Index.Value> index = new ConcurrentHashMap<>();
+    private final ConditionalConcurrentHashMap index = new ConditionalConcurrentHashMap();
 
     @Override
     public void put(Long aLong, Value value) {
-        index.put(aLong, value);
+        index.putIf(aLong, value, (value1, value2) -> {
+            short s1 = value1.getSegmentId();
+            short s2 = value2.getSegmentId();
+            return s1 < s2 || (s1 == s2 && value1.getOffset() < value2.getOffset());
+        });
     }
 
     @Override

@@ -90,14 +90,14 @@ public class PollingWatchService
         }
 
         // A modifier may be used to specify the sensitivity level
-        SensitivityWatchEventModifier sensivity = SensitivityWatchEventModifier.MEDIUM;
+        CustomSensivityWatchEventModifier sensivity = CustomSensivityWatchEventModifier.MEDIUM;
         if (modifiers.length > 0) {
             for (WatchEvent.Modifier modifier : modifiers) {
                 if (modifier == null) {
                     throw new NullPointerException();
                 }
-                if (modifier instanceof SensitivityWatchEventModifier) {
-                    sensivity = (SensitivityWatchEventModifier) modifier;
+                if (modifier instanceof CustomSensivityWatchEventModifier) {
+                    sensivity = (CustomSensivityWatchEventModifier) modifier;
                     continue;
                 }
                 throw new UnsupportedOperationException("Modifier not supported");
@@ -112,9 +112,10 @@ public class PollingWatchService
         // registration is done in privileged block as it requires the
         // attributes of the entries in the directory.
         try {
-            final SensitivityWatchEventModifier s = sensivity;
+            final CustomSensivityWatchEventModifier s = sensivity;
             return (WatchKey) AccessController.doPrivileged(
-                    (PrivilegedExceptionAction) () -> doPrivilegedRegister(path, eventSet, s));
+                    (PrivilegedExceptionAction) () -> doPrivilegedRegister(path, eventSet,
+                            s.sensitivityValueInMilliseconds()));
         } catch (PrivilegedActionException pae) {
             Throwable cause = pae.getCause();
             if (cause != null && cause instanceof IOException) {
@@ -128,7 +129,7 @@ public class PollingWatchService
     // existing key if already registered
     private PollingWatchKey doPrivilegedRegister(Path path,
                                                  Set events,
-                                                 SensitivityWatchEventModifier sensivity)
+                                                 int millisInterval)
             throws IOException {
         // check file is a directory and get its file key if possible
         BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
@@ -158,7 +159,7 @@ public class PollingWatchService
                     watchKey.disable();
                 }
             }
-            watchKey.enable(events, sensivity.sensitivityValueInSeconds());
+            watchKey.enable(events, millisInterval);
             return watchKey;
         }
 
@@ -265,7 +266,7 @@ public class PollingWatchService
                 // create the periodic task
                 Runnable thunk = this::poll;
                 this.poller = scheduledExecutor
-                        .scheduleAtFixedRate(thunk, period, period, TimeUnit.SECONDS);
+                        .scheduleAtFixedRate(thunk, period, period, TimeUnit.MICROSECONDS);
             }
         }
 

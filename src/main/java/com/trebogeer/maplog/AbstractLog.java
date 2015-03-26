@@ -4,7 +4,7 @@ import com.codahale.metrics.JmxReporter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Slf4jReporter;
 import com.trebogeer.maplog.hash.Hash;
-import com.trebogeer.maplog.index.ConcurrentHashMapIndex;
+import com.trebogeer.maplog.index.ConditionalHashMapIndex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +44,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
 
     private LogConfig config;
     protected final TreeMap<Short, Segment> segments = new TreeMap<>();
-    protected final Index<Long> index = new ConcurrentHashMapIndex();
+    protected final Index<Long> index = new ConditionalHashMapIndex();
     protected Segment currentSegment;
     private short nextSegmentId;
     private long lastFlush;

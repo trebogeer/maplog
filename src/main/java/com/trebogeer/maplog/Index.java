@@ -11,8 +11,11 @@ import java.util.Map;
 public interface Index<K> {
 
     void put(K k, Value v);
+
     Value get(K k);
+
     long size();
+
     void putAll(Map<K, Value> subset);
 
     static final class Value implements Serializable {
@@ -28,6 +31,44 @@ public interface Index<K> {
             this.segmentId = segmentId;
         }
 
+        public long getPosition() {
+            return position;
+        }
 
+        public int getOffset() {
+            return offset;
+        }
+
+        public byte getFlags() {
+            return flags;
+        }
+
+        public short getSegmentId() {
+            return segmentId;
+        }
+
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Value)) return false;
+
+            Value value = (Value) o;
+
+            if (segmentId != value.segmentId) return false;
+            if (offset != value.offset) return false;
+            if (position != value.position) return false;
+            if (flags != value.flags) return false;
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = (int) (position ^ (position >>> 32));
+            result = 31 * result + offset;
+            result = 31 * result + (int) flags;
+            result = 31 * result + (int) segmentId;
+            return result;
+        }
     }
 }

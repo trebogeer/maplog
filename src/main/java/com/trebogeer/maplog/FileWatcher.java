@@ -13,6 +13,7 @@ import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.concurrent.TimeUnit;
 
+import static com.sun.nio.file.SensitivityWatchEventModifier.*;
 import static java.nio.file.StandardWatchEventKinds.*;
 
 /**
@@ -48,8 +49,7 @@ public class FileWatcher implements Runnable {
             } else {
                 PollingWatchService pollingWatchService = new PollingWatchService();
                 WatchEvent.Kind[] events = {ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY};
-                WatchEvent.Modifier modifier = SensitivityWatchEventModifier.MEDIUM;
-                pollingWatchService.register(this.path, events, modifier);
+                pollingWatchService.register(this.path, events, HIGH);
                 watchService = pollingWatchService;
             }
             // loop forever to watch directory
