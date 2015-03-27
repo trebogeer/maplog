@@ -5,6 +5,8 @@ import com.trebogeer.maplog.hash.MurMur3;
 import java.util.HashSet;
 import java.util.Set;
 
+import static com.trebogeer.maplog.TestUtils.utlogger;
+
 /**
  * @author dimav
  *         Date: 3/16/15
@@ -20,8 +22,8 @@ public class CollisionCheck {
         int n = str.length();
         if (n == 0) {
             long i = MurMur3.MurmurHash3_x64_64(prefix.getBytes(), 127);
-            if (!ints.add(i)){
-                System.out.println("Collision");
+            if (!ints.add(i)) {
+                utlogger.info("Collision " + i);
             }
         }
         else {
@@ -31,7 +33,7 @@ public class CollisionCheck {
     }
 
     public static void main(String... args) {
-        String ab = "abcdefghijklmnopqrstuvwxyz12345";
+        String ab = "abcdefghijklmnopqrstuvwxyz123456789";
         permutation(ab, new HashSet<>());
     }
 

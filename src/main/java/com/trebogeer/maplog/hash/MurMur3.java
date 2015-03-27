@@ -321,7 +321,7 @@ public final class MurMur3 {
     }
 
     public static Supplier<Hash> murmur3() {
-        return () -> bytes -> MurmurHash3_x64_64(bytes, 127);
+        return () -> bytes -> MurmurHash3_x64_64(bytes, 9001);
     }
 
 

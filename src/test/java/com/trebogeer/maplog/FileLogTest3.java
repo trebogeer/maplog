@@ -1,5 +1,7 @@
 package com.trebogeer.maplog;
 
+import com.trebogeer.maplog.fsws.FileWatcher;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;

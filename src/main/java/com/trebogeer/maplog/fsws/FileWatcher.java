@@ -1,20 +1,20 @@
-package com.trebogeer.maplog;
+package com.trebogeer.maplog.fsws;
 
-import com.sun.nio.file.SensitivityWatchEventModifier;
-import com.trebogeer.maplog.fsws.PollingWatchService;
+import com.trebogeer.maplog.Segment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.concurrent.TimeUnit;
 
-import static com.sun.nio.file.SensitivityWatchEventModifier.*;
-import static java.nio.file.StandardWatchEventKinds.*;
+import static com.trebogeer.maplog.fsws.CustomSensivityWatchEventModifier.HIGH;
+import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
+import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
+import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 
 /**
  * @author dimav
@@ -62,7 +62,7 @@ public class FileWatcher implements Runnable {
                     // poll for file system events on the WatchKey
                     for (final WatchEvent<?> event : watchKey.pollEvents()) {
                         String ename = event.kind().name();
-                        logger.info(ename);
+                        logger.info(event.context().toString());
                         /*if (ename.equals(StandardWatchEventKinds.ENTRY_MODIFY.name())) {
                             logger.info(event.kind().name());
                             // logger.info(event.count() + "");
