@@ -33,5 +33,10 @@ public interface Segment extends Loggable, Serializable {
 
     ByteBuffer getEntry(long pos, int offset);
 
+    /**
+     * Compacts segment
+     */
+    void compact();
+
 
 }

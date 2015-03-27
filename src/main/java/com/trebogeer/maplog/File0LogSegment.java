@@ -1,6 +1,5 @@
 package com.trebogeer.maplog;
 
-import com.trebogeer.maplog.hash.MurMur3;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,12 +8,16 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static java.nio.file.StandardOpenOption.APPEND;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
+import static java.nio.file.StandardOpenOption.SYNC;
 import static java.nio.file.StandardOpenOption.WRITE;
 
 /**
@@ -44,7 +47,7 @@ public class File0LogSegment extends AbstractSegment {
 
         @Override
         protected ByteBuffer initialValue() {
-            return ByteBuffer.allocate(INDEX_ENTRY_SIZE);
+            return ByteBuffer.allocateDirect(INDEX_ENTRY_SIZE);
         }
 
         @Override
@@ -114,18 +117,15 @@ public class File0LogSegment extends AbstractSegment {
 
         long indexFileSize = indexReadFileChannel.size();
         if (indexFileSize != 0) {
-            // TODO read bigger chunks here
             long start = System.currentTimeMillis();
             ByteBuffer b = indexBuffer.get();
-            byte[] key = new byte[8];
+
             HashMap<Long, Index.Value> localIndex = new HashMap<>();
             while (indexReadFileChannel.read(b) != -1) {
                 b.flip();
-                b.get(key);
-                localIndex.put(Utils.toLong(key), new Index.Value(b.getLong(), b.getInt(), id(), b.get()));
+                localIndex.put(b.getLong(), new Index.Value(b.getLong(), b.getInt(), id(), b.get()));
                 b.rewind();
             }
-            // TODO wait on condition to add to global index.
             log().index().putAll(localIndex);
             logger.info("Loaded segment {} index in memory. Elapsed time millis : {}, total number of segment entries: {}",
                     id(), System.currentTimeMillis() - start, localIndex.size());
@@ -234,6 +234,9 @@ public class File0LogSegment extends AbstractSegment {
         indexWriteFileChannel = null;
         indexReadFileChannel.close();
         indexReadFileChannel = null;
+
+        metaFileChannel.close();
+        metaFileChannel = null;
     }
 
     @Override
@@ -249,5 +252,62 @@ public class File0LogSegment extends AbstractSegment {
     }
 
 
+    /**
+     * Compacts segment.
+     */
+    @Override
+    public void compact() {
+        try (FileLock fl = metaFileChannel.tryLock()) {
+            if (fl != null && log().lastSegment().id() > id()) {
+                long start = System.currentTimeMillis();
+                FileChannel index = FileChannel.open(indexFile.toPath(), READ);
+                FileChannel dataLog = FileChannel.open(logFile.toPath(), READ);
+
+                Path indexPath = Paths.get(indexFile.getAbsolutePath() + ".compact");
+                Path dataPath = Paths.get(logFile.getAbsolutePath() + ".compact");
+
+                FileChannel newIndex = null;
+                FileChannel newLog = null;
+
+                ByteBuffer bb = indexBuffer.get();
+                while (index.read(bb) != -1) {
+                    bb.rewind();
+                    Long key = bb.getLong();
+                    Index.Value ov = new Index.Value(bb.getLong(), bb.getInt(), id(), bb.get());
+                    Index.Value cv = log().index().get(key);
+
+                    if (cv != null) {
+                        short curSegId = cv.getSegmentId();
+                        short vSegId = ov.getSegmentId();
+                        if (curSegId < vSegId || ((curSegId == vSegId) && cv.getOffset() < ov.getOffset())) {
+                            if (newIndex == null) {
+                                Files.deleteIfExists(indexPath);
+                                Files.deleteIfExists(dataPath);
+
+                                newIndex = FileChannel.open(indexPath, CREATE, WRITE);
+                                newLog = FileChannel.open(dataPath, CREATE, WRITE);
+                            }
+
+                            dataLog.transferTo(ov.getPosition(), ov.getOffset(), newLog);
+                            bb.rewind();
+                            newIndex.write(bb);
+                        }
+                    } else {
+                        // TODO need to figure out if it should get deleted during compaction.
+                    }
+                    bb.rewind();
+                }
+                if (newLog != null) {
+                    long oldSize = dataLog.size();
+                    long newSize = newLog.size();
+                    logger.info("Compacted segment {}:  {} -> {} in {} millis.",
+                            id(), oldSize, newSize, (System.currentTimeMillis() - start));
+                }
+
+            }
+        } catch (IOException ioe) {
+            logger.error(String.format("Failed to compact segment %d due to error", id()), ioe);
+        }
+    }
 }
 
