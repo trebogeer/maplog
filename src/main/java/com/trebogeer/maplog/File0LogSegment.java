@@ -279,7 +279,7 @@ public class File0LogSegment extends AbstractSegment {
                     if (cv != null) {
                         short curSegId = cv.getSegmentId();
                         short vSegId = ov.getSegmentId();
-                        if (curSegId < vSegId || ((curSegId == vSegId) && cv.getOffset() < ov.getOffset())) {
+                        if (curSegId < vSegId || ((curSegId == vSegId) && cv.getPosition() < ov.getPosition())) {
                             if (newIndex == null) {
                                 Files.deleteIfExists(indexPath);
                                 Files.deleteIfExists(dataPath);
