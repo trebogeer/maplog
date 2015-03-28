@@ -273,6 +273,7 @@ public class File0LogSegment extends AbstractSegment {
                 while (index.read(bb) != -1) {
                     bb.rewind();
                     Long key = bb.getLong();
+                    bb.mark();
                     Index.Value ov = new Index.Value(bb.getLong(), bb.getInt(), id(), bb.get());
                     Index.Value cv = log().index().get(key);
 
@@ -289,6 +290,9 @@ public class File0LogSegment extends AbstractSegment {
                             }
 
                             dataLog.transferTo(ov.getPosition(), ov.getOffset(), newLog);
+                            long pos = dataLog.position() - ov.getOffset();
+                            bb.reset();
+                            bb.putLong(pos);
                             bb.rewind();
                             newIndex.write(bb);
                         }
