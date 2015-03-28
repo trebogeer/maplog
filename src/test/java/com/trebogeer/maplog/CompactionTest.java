@@ -37,22 +37,12 @@ public class CompactionTest {
             fileLog.open();
 
             for (int a = 0; a < 2; a++) {
-                for (int i = 0; i < segment_size/image.length/2 + 100; i++) {
-                    byte data[] = image;
-                    //   byte data[] = s.getBytes();
-                    int l = data.length;
-
-                    // int totalSize = 4 + l;
+                for (int i = 0; i < segment_size / image.length / 2 + 100; i++) {
+                    int l = image.length;
                     ByteBuffer bb = ByteBuffer.allocate(l);
-                    //bb.putInt(l);
-                    bb.put(data);
-
+                    bb.put(image);
                     bb.rewind();
-                    try {
-                        fileLog.appendEntry(bb, String.format(key_template, i).getBytes(), (byte) 6);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                    fileLog.appendEntry(bb, String.format(key_template, i).getBytes(), (byte) 6);
                 }
             }
 
