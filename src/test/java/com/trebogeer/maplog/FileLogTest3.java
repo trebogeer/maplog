@@ -1,7 +1,5 @@
 package com.trebogeer.maplog;
 
-import com.trebogeer.maplog.fsws.FileWatcher;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -36,7 +34,7 @@ public class FileLogTest3 {
             chunk_size = Integer.valueOf(args[1]);
         }
 
-        ExecutorService es = Executors.newFixedThreadPool(5);
+        ExecutorService es = Executors.newFixedThreadPool(total_workers);
 
         String path = System.getProperty("user.home") + File.separator + /*"tmp"*/"nfsshare" + File.separator;
         InputStream fis = FileLogTest1.class.getResourceAsStream("/image");
@@ -47,8 +45,6 @@ public class FileLogTest3 {
             e.printStackTrace();
         }
 
-        FileWatcher fw = new FileWatcher(null, new File(path).toPath(), false);
-      //  es.execute(fw);
         byte[] image = baos.toByteArray();
 
 
@@ -89,7 +85,6 @@ public class FileLogTest3 {
 
             try {
                 latch.await(24, TimeUnit.HOURS);
-                fw.shutdown();
                 es.shutdown();
                 es.awaitTermination(10, TimeUnit.MINUTES);
             } catch (InterruptedException e) {

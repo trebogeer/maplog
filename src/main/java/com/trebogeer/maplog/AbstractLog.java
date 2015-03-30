@@ -396,5 +396,13 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
 
     protected abstract boolean checkSpaceAvailable();
 
-
+    /**
+     * Gets a log name.
+     *
+     * @return name
+     */
+    @Override
+    public String name() {
+        return name;
+    }
 }

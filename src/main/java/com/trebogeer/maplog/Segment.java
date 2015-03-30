@@ -38,5 +38,10 @@ public interface Segment extends Loggable, Serializable {
      */
     void compact();
 
+    /**
+     * Catches up with modifications from other members
+     */
+    void catchUp();
+
 
 }

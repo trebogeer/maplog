@@ -42,6 +42,8 @@ public class File0LogSegment extends AbstractSegment {
     protected FileChannel metaFileChannel;
     protected boolean isEmpty = true;
     protected ReentrantLock lock = new ReentrantLock();
+    protected long lastCatchUpPosition = 0;
+    protected String fullName;
     protected final ThreadLocal<ByteBuffer> indexBuffer = new ThreadLocal<ByteBuffer>() {
 
         @Override
@@ -63,6 +65,7 @@ public class File0LogSegment extends AbstractSegment {
         this.logFile = new File(log.base.getParentFile(), String.format("%s-%d.log", log.base.getName(), id));
         this.indexFile = new File(log.base.getParentFile(), String.format("%s-%d.index", log.base.getName(), id));
         this.metadataFile = new File(log.base.getParentFile(), String.format("%s-%d.metadata", log.base.getName(), id));
+        this.fullName = log().name() + "/" + this.id;
     }
 
     @Override
@@ -94,7 +97,7 @@ public class File0LogSegment extends AbstractSegment {
                 metaFileChannel.read(meta);
                 short metaFileIndex = meta.getShort();
                 if (metaFileIndex != super.id) {
-                    throw new LogException("Segment metadata out of sync");
+                    throw new LogException("Segment metadata out of sync " + fullName);
                 }
                 timestamp = meta.getLong();
             }
@@ -127,7 +130,7 @@ public class File0LogSegment extends AbstractSegment {
             }
             log().index().putAll(localIndex);
             logger.info("Loaded segment {} index in memory. Elapsed time millis : {}, total number of segment entries: {}",
-                    id(), System.currentTimeMillis() - start, localIndex.size());
+                    fullName, System.currentTimeMillis() - start, localIndex.size());
         }
         indexReadFileChannel.position(indexFileSize);
 
@@ -155,12 +158,15 @@ public class File0LogSegment extends AbstractSegment {
             // TODO optimize to return approx value may be. This is to estimate if rollover is needed mostly.
             return Math.max(logWriteFileChannel.position(), logReadFileChannel.position());
         } catch (IOException e) {
-            throw new LogException("error retrieving size from file channel", e);
+            throw new LogException("Error retrieving size from file channel seg: " + fullName, e);
         }
     }
 
 
     @Override
+    // TODO 1. see if it would be easy/possible to push other pending changes under the same file lock.
+    // TODO 2. see if it would make sense to try to lock only pos + data size region and let others do their thing.
+    // TODO or maybe just expose bulk api or all of them
     public byte[] appendEntry(ByteBuffer entry, byte[] index, byte flags) {
         assertIsOpen();
         try {
@@ -170,7 +176,7 @@ public class File0LogSegment extends AbstractSegment {
             storePosition(index, logWriteFileChannel.position() - size, size, flags);
             isEmpty = false;
         } catch (IOException e) {
-            throw new LogException("error appending entry", e);
+            throw new LogException("Error appending entry seg: " + fullName, e);
         } finally {
             lock.unlock();
         }
@@ -192,7 +198,8 @@ public class File0LogSegment extends AbstractSegment {
             log().index().put(key, new Index.Value(position, offset, id(), flags));
             return size;
         } catch (IOException e) {
-            throw new LogException("error storing position", e);
+            throw new LogException("Error storing position seg: "
+                    + fullName + "/" + position + "/" + offset, e);
         }
     }
 
@@ -205,7 +212,8 @@ public class File0LogSegment extends AbstractSegment {
             buffer.flip();
             return buffer;
         } catch (IOException e) {
-            throw new LogException("error retrieving entry", e);
+            throw new LogException("Error retrieving entry seg: "
+                    + fullName + "/" + position + "/" + offset, e);
         }
     }
 
@@ -304,13 +312,32 @@ public class File0LogSegment extends AbstractSegment {
                     long oldSize = dataLog.size();
                     long newSize = newLog.size();
                     logger.info("Compacted segment {}:  {} -> {} in {} millis.",
-                            id(), oldSize, newSize, (System.currentTimeMillis() - start));
+                            fullName, oldSize, newSize, (System.currentTimeMillis() - start));
                 }
 
             }
         } catch (IOException ioe) {
-            logger.error(String.format("Failed to compact segment %d due to error", id()), ioe);
+            logger.error(String.format("Failed to compact segment %s due to error", fullName), ioe);
         }
+    }
+
+    @Override
+    // TODO avoid reading own changes. Need to optimize.
+    public void catchUp() {
+        long start = System.currentTimeMillis();
+        try (FileChannel index = FileChannel.open(indexFile.toPath(), READ)) {
+            index.position(lastCatchUpPosition);
+            ByteBuffer bb = indexBuffer.get();
+            while (index.read(bb) != -1) {
+                bb.flip();
+                log().index().put(bb.getLong(), new Index.Value(bb.getLong(), bb.getInt(), id(), bb.get()));
+                bb.rewind();
+            }
+        } catch (IOException io) {
+            logger.error(String.format("Failed to catch up on segment %d.", id()), io);
+        }
+        logger.info("Catched up on changes in segment {}. Elapsed time {} millis.",
+                fullName, (System.currentTimeMillis() - start));
     }
 }
 

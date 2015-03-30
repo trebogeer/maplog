@@ -1,5 +1,6 @@
 package com.trebogeer.maplog.fsws;
 
+import com.trebogeer.maplog.FileLog;
 import com.trebogeer.maplog.Segment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,7 +12,7 @@ import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.concurrent.TimeUnit;
 
-import static com.trebogeer.maplog.fsws.CustomSensivityWatchEventModifier.HIGH;
+import static com.trebogeer.maplog.fsws.CustomSensivityWatchEventModifier.VERY_HIGH;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
@@ -25,18 +26,18 @@ public class FileWatcher implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(FileWatcher.class);
 
-    private final Segment segment;
-
     private final Path path;
 
     private volatile boolean stop = false;
 
     private final boolean fsSupport;
 
-    public FileWatcher(Segment segment, Path path, boolean fsSupport) {
-        this.segment = segment;
+    private final FileLog log;
+
+    public FileWatcher(FileLog fl, Path path, boolean fsSupport) {
         this.path = path;
         this.fsSupport = fsSupport;
+        this.log = fl;
     }
 
     @Override
@@ -49,7 +50,7 @@ public class FileWatcher implements Runnable {
             } else {
                 PollingWatchService pollingWatchService = new PollingWatchService();
                 WatchEvent.Kind[] events = {ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY};
-                pollingWatchService.register(this.path, events, HIGH);
+                pollingWatchService.register(this.path, events, VERY_HIGH);
                 watchService = pollingWatchService;
             }
             // loop forever to watch directory
@@ -61,8 +62,22 @@ public class FileWatcher implements Runnable {
                 if (watchKey != null) {
                     // poll for file system events on the WatchKey
                     for (final WatchEvent<?> event : watchKey.pollEvents()) {
-                        String ename = event.kind().name();
-                        logger.info(event.context().toString());
+                        String ename = event.context().toString();
+                        logger.info(ename);
+                        if (ename.endsWith(".index")) {
+                            if (event.kind().equals(ENTRY_MODIFY)) {
+                                String st = ename.substring(ename.lastIndexOf('-') + 1);
+                                try {
+                                    short id = Short.valueOf(st.substring(0, st.lastIndexOf('.')));
+                                    Segment s = log.segment(id);
+                                    if (s != null) {
+                                        s.catchUp();
+                                    }
+                                } catch (NumberFormatException nfe) {
+                                    logger.error("Unknown index file " + ename, nfe);
+                                }
+                            }
+                        }
                         /*if (ename.equals(StandardWatchEventKinds.ENTRY_MODIFY.name())) {
                             logger.info(event.kind().name());
                             // logger.info(event.count() + "");

@@ -1,5 +1,6 @@
 package com.trebogeer.maplog;
 
+import com.trebogeer.maplog.fsws.FileWatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,6 +12,15 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+
+import static com.trebogeer.maplog.Utils.fixedThreadNamingExecutorService;
+import static com.trebogeer.maplog.Utils.isLinux;
+import static com.trebogeer.maplog.Utils.shutdownExecutor;
+import static java.io.File.separator;
+import static java.lang.Thread.MIN_PRIORITY;
+import static java.lang.Thread.NORM_PRIORITY;
 
 /**
  * @author dimav
@@ -24,19 +34,23 @@ public class FileLog extends AbstractLog {
     final FileLogConfig config;
     final File base;
     File partition = null;
+    final ExecutorService catchUp;
+    final ExecutorService compact;
 
     public FileLog(String name, FileLogConfig config) {
         super(config);
         this.config = config.copy();
         this.base = new File(config.getDirectory(), name);
         this.name = this.base.getAbsolutePath();
+        this.catchUp = fixedThreadNamingExecutorService(1, "catch-up-thread-" + name().replaceAll(separator, "-"), NORM_PRIORITY);
+        this.compact = fixedThreadNamingExecutorService(1, "compact-thread-" + name().replaceAll(separator, "-"), MIN_PRIORITY);
     }
 
     /**
-     * Works only on linux. Retrieving monunts, resolving symlinks, trying to match by path segments.
+     * Works only on linux. Retrieving mounts, resolving symlinks, trying to match by path segments.
      */
     private void initPartitionInfo() {
-        if (Utils.isLinux()) {
+        if (isLinux()) {
             File info = new File("/proc/mounts");
             if (info.exists()) {
                 try (FileReader fr = new FileReader(info); BufferedReader br = new BufferedReader(fr)) {
@@ -83,7 +97,7 @@ public class FileLog extends AbstractLog {
 
     @Override
     protected Segment createSegment(short segmentId) {
-       return config.isLockFiles()?new LockingLogSegment(this, segmentId):new File0LogSegment(this, segmentId);
+        return config.isLockFiles() ? new LockingLogSegment(this, segmentId) : new File0LogSegment(this, segmentId);
     }
 
     @Override
@@ -101,16 +115,25 @@ public class FileLog extends AbstractLog {
         initPartitionInfo();
         super.open();
         final FileLog f = this;
-      /*  Runtime.getRuntime().addShutdownHook(new Thread() {
+        catchUp.execute(new FileWatcher(this, base.getAbsoluteFile().getParentFile().toPath(), false));
+        Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
                 try {
-                    f.close();
+                    if (!f.isClosed()) {
+                        f.close();
+                    }
                 } catch (IOException e) {
                     logger.error("Failed to close log file on jvm shutdown.", e);
                 }
             }
-        });*/
+        });
     }
 
+    @Override
+    public synchronized void close() throws IOException {
+        shutdownExecutor(2, TimeUnit.MINUTES, catchUp);
+        shutdownExecutor(2, TimeUnit.MINUTES, compact);
+        super.close();
+    }
 }

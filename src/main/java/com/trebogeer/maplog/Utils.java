@@ -1,7 +1,11 @@
 package com.trebogeer.maplog;
 
+import java.io.File;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author dimav
@@ -142,5 +146,26 @@ public class Utils {
     public static boolean isWindows() {
         String os = System.getProperty("os.name");
         return os != null && os.toLowerCase().contains("windows");
+    }
+
+
+    public static ExecutorService fixedThreadNamingExecutorService(int threads, String name, int priority){
+       return Executors.newFixedThreadPool(threads, r -> {
+            Thread t = new Thread(r);
+            // -XX:ThreadPriorityPolicy=42
+            t.setPriority(priority);
+            t.setName(name);
+            return t;
+        });
+    }
+
+    public static void shutdownExecutor(long timeout, TimeUnit unit, ExecutorService es){
+        es.shutdown();
+        try {
+            es.awaitTermination(timeout, unit);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        es.shutdownNow();
     }
 }

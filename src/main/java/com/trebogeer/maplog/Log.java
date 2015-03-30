@@ -91,5 +91,12 @@ public interface Log<K> extends Serializable {
     // TODO as it's Log specific now.
     ByteBuffer getEntry(byte[] key);
 
+    /**
+     * Gets a log name.
+     *
+     * @return name
+     */
+    String name();
+
 
 }
