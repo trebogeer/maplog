@@ -22,6 +22,7 @@ import static java.io.File.separator;
 import static java.lang.Thread.MIN_PRIORITY;
 import static java.lang.Thread.NORM_PRIORITY;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 /**
  * @author dimav
@@ -119,7 +120,7 @@ public class FileLog extends AbstractLog {
         catchUp.execute(new FileWatcher(this, base.getAbsoluteFile().getParentFile().toPath(), false));
         catchUp.execute(() -> {
             try {
-                Thread.sleep(HOURS.toMillis(6));
+                Thread.sleep(MINUTES.toMillis(6));
                 // TODO add stop condition
                 while (true) {
                     f.compact();
