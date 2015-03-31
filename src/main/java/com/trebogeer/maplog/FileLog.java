@@ -21,6 +21,7 @@ import static com.trebogeer.maplog.Utils.shutdownExecutor;
 import static java.io.File.separator;
 import static java.lang.Thread.MIN_PRIORITY;
 import static java.lang.Thread.NORM_PRIORITY;
+import static java.util.concurrent.TimeUnit.HOURS;
 
 /**
  * @author dimav
@@ -116,6 +117,21 @@ public class FileLog extends AbstractLog {
         super.open();
         final FileLog f = this;
         catchUp.execute(new FileWatcher(this, base.getAbsoluteFile().getParentFile().toPath(), false));
+        catchUp.execute(() -> {
+            try {
+                Thread.sleep(HOURS.toMillis(6));
+                // TODO add stop condition
+                while (true) {
+                    f.compact();
+                    Thread.sleep(HOURS.toMillis(6));
+                }
+
+            } catch (IOException io) {
+                logger.error("Compaction failed for log " + name(), io);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {

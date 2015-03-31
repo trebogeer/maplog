@@ -61,6 +61,7 @@ public class FileWatcher implements Runnable {
                 watchKey = watchService.poll(1000, TimeUnit.MILLISECONDS);
                 if (watchKey != null) {
                     // poll for file system events on the WatchKey
+                    // TODO collaps same events on same file
                     for (final WatchEvent<?> event : watchKey.pollEvents()) {
                         String ename = event.context().toString();
                         logger.info(ename);

@@ -295,20 +295,12 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     }
 
     @Override
-    public void compact(short index) throws IOException {
-        // Assert.index(index, index >= index() && (lastIndex() == null || index <= lastIndex()), "%s is invalid for the log", index);
-        // Assert.arg(index, segments.containsKey(index), "%s must be the first index of a segment", index);
-
-        // Iterate through all segments in the log. If a segment's first index matches the given index or its last index
-        // is less than the given index then remove/close/delete the segment.
-        logger.info("Compacting log at index {}", index);
-        for (Iterator<Map.Entry<Short, Segment>> iterator = segments.entrySet().iterator(); iterator.hasNext(); ) {
-            Map.Entry<Short, Segment> entry = iterator.next();
+    // TODO employ bloom filter to check if compaction is needed at all?
+    public void compact() throws IOException {
+        for (Map.Entry<Short, Segment> entry : segments.entrySet()) {
             Segment segment = entry.getValue();
-            if (index > segment.id()) {
-                iterator.remove();
-                segment.close();
-                segment.delete();
+            if (segment != null && segment.id() != currentSegment.id()) {
+                segment.compact();
             }
         }
     }

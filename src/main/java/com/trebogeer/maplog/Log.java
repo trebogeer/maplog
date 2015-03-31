@@ -56,16 +56,13 @@ public interface Log<K> extends Serializable {
     void rollOver(short index) throws IOException;
 
     /**
-     * Compacts the log, removing all segments up to and including the given index.
+     * Compacts the log, removing obsolete entries.
      *
-     * @param index The index to which to compact the log. This must be the first index of the last
-     *              segment in the log to remove via compaction
      * @throws IllegalArgumentException  if {@code index} is not the first index of a segment or if
      *                                   {@code index} represents the last segment in the log
-     * @throws IndexOutOfBoundsException if {@code index} is out of bounds for the log
-     * @throws IOException               If the log failed to delete a segment.
+     * @throws IOException               If the log failed to compact a segment.
      */
-    void compact(short index) throws IOException;
+    void compact() throws IOException;
 
     /**
      * Returns index

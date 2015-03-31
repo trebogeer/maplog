@@ -264,60 +264,63 @@ public class File0LogSegment extends AbstractSegment {
      */
     @Override
     public void compact() {
-        try (FileLock fl = metaFileChannel.tryLock()) {
-            if (fl != null && log().lastSegment().id() > id()) {
-                long start = System.currentTimeMillis();
-                FileChannel index = FileChannel.open(indexFile.toPath(), READ);
-                FileChannel dataLog = FileChannel.open(logFile.toPath(), READ);
 
-                Path indexPath = Paths.get(indexFile.getAbsolutePath() + ".compact");
-                Path dataPath = Paths.get(logFile.getAbsolutePath() + ".compact");
+        if (this.id() != log().segment().id()) {
+            try (FileLock fl = metaFileChannel.tryLock()) {
+                if (fl != null && log().lastSegment().id() > id()) {
+                    long start = System.currentTimeMillis();
+                    FileChannel index = FileChannel.open(indexFile.toPath(), READ);
+                    FileChannel dataLog = FileChannel.open(logFile.toPath(), READ);
 
-                FileChannel newIndex = null;
-                FileChannel newLog = null;
+                    Path indexPath = Paths.get(indexFile.getAbsolutePath() + ".compact");
+                    Path dataPath = Paths.get(logFile.getAbsolutePath() + ".compact");
 
-                ByteBuffer bb = indexBuffer.get();
-                while (index.read(bb) != -1) {
-                    bb.rewind();
-                    Long key = bb.getLong();
-                    bb.mark();
-                    Index.Value ov = new Index.Value(bb.getLong(), bb.getInt(), id(), bb.get());
-                    Index.Value cv = log().index().get(key);
+                    FileChannel newIndex = null;
+                    FileChannel newLog = null;
 
-                    if (cv != null) {
-                        short curSegId = cv.getSegmentId();
-                        short vSegId = ov.getSegmentId();
-                        if (curSegId < vSegId || ((curSegId == vSegId) && cv.getPosition() < ov.getPosition())) {
-                            if (newIndex == null) {
-                                Files.deleteIfExists(indexPath);
-                                Files.deleteIfExists(dataPath);
+                    ByteBuffer bb = indexBuffer.get();
+                    while (index.read(bb) != -1) {
+                        bb.rewind();
+                        Long key = bb.getLong();
+                        bb.mark();
+                        Index.Value ov = new Index.Value(bb.getLong(), bb.getInt(), id(), bb.get());
+                        Index.Value cv = log().index().get(key);
 
-                                newIndex = FileChannel.open(indexPath, CREATE, WRITE);
-                                newLog = FileChannel.open(dataPath, CREATE, WRITE);
+                        if (cv != null) {
+                            short curSegId = cv.getSegmentId();
+                            short vSegId = ov.getSegmentId();
+                            if (curSegId < vSegId || ((curSegId == vSegId) && cv.getPosition() < ov.getPosition())) {
+                                if (newIndex == null) {
+                                    Files.deleteIfExists(indexPath);
+                                    Files.deleteIfExists(dataPath);
+
+                                    newIndex = FileChannel.open(indexPath, CREATE, WRITE);
+                                    newLog = FileChannel.open(dataPath, CREATE, WRITE);
+                                }
+
+                                dataLog.transferTo(ov.getPosition(), ov.getOffset(), newLog);
+                                long pos = dataLog.position() - ov.getOffset();
+                                bb.reset();
+                                bb.putLong(pos);
+                                bb.rewind();
+                                newIndex.write(bb);
                             }
-
-                            dataLog.transferTo(ov.getPosition(), ov.getOffset(), newLog);
-                            long pos = dataLog.position() - ov.getOffset();
-                            bb.reset();
-                            bb.putLong(pos);
-                            bb.rewind();
-                            newIndex.write(bb);
+                        } else {
+                            // TODO need to figure out if it should get deleted during compaction.
                         }
-                    } else {
-                        // TODO need to figure out if it should get deleted during compaction.
+                        bb.rewind();
                     }
-                    bb.rewind();
-                }
-                if (newLog != null) {
-                    long oldSize = dataLog.size();
-                    long newSize = newLog.size();
-                    logger.info("Compacted segment {}:  {} -> {} in {} millis.",
-                            fullName, oldSize, newSize, (System.currentTimeMillis() - start));
-                }
+                    if (newLog != null) {
+                        long oldSize = dataLog.size();
+                        long newSize = newLog.size();
+                        logger.info("Compacted segment {}:  {} -> {} in {} millis.",
+                                fullName, oldSize, newSize, (System.currentTimeMillis() - start));
+                    }
 
+                }
+            } catch (IOException ioe) {
+                logger.error(String.format("Failed to compact segment %s due to error", fullName), ioe);
             }
-        } catch (IOException ioe) {
-            logger.error(String.format("Failed to compact segment %s due to error", fullName), ioe);
         }
     }
 
