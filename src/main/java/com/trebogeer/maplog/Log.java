@@ -1,8 +1,11 @@
 package com.trebogeer.maplog;
 
+import com.trebogeer.maplog.index.Value;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.Map;
 import java.util.TreeMap;
 
 /**
@@ -53,7 +56,7 @@ public interface Log<K> extends Serializable {
      *
      * @throws java.io.IOException If the log failed to create a new segment.
      */
-    void rollOver(short index) throws IOException;
+    void rollOver() throws IOException;
 
     /**
      * Compacts the log, removing obsolete entries.
@@ -69,7 +72,7 @@ public interface Log<K> extends Serializable {
      *
      * @return index
      */
-    Index<K> index();
+    Map<K, Value> index();
 
     /**
      * Counts entries indexed.

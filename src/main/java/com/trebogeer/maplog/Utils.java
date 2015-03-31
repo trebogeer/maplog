@@ -1,7 +1,5 @@
 package com.trebogeer.maplog;
 
-import java.io.File;
-import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -14,7 +12,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class Utils {
 
-    public static final sun.misc.Unsafe UNSAFE;
+   /* public static final sun.misc.Unsafe UNSAFE;
 
     static {
         Object theUnsafe = null;
@@ -27,7 +25,7 @@ public class Utils {
         } catch (Exception e) { exception = e; }
         UNSAFE = (sun.misc.Unsafe) theUnsafe;
         if (UNSAFE == null) throw new Error("Could not obtain access to sun.misc.Unsafe", exception);
-    }
+    }*/
 
     private static int[] crc3_table = {
             0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f, 0xe963a535, 0x9e6495a3,

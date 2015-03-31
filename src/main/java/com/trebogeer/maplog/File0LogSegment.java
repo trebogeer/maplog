@@ -1,5 +1,6 @@
 package com.trebogeer.maplog;
 
+import com.trebogeer.maplog.index.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,8 +13,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+import static java.nio.file.StandardCopyOption.COPY_ATTRIBUTES;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.nio.file.StandardOpenOption.APPEND;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
@@ -122,10 +127,10 @@ public class File0LogSegment extends AbstractSegment {
             long start = System.currentTimeMillis();
             ByteBuffer b = indexBuffer.get();
 
-            HashMap<Long, Index.Value> localIndex = new HashMap<>();
+            HashMap<Long, Value> localIndex = new HashMap<>();
             while (indexReadFileChannel.read(b) != -1) {
                 b.flip();
-                localIndex.put(b.getLong(), new Index.Value(b.getLong(), b.getInt(), id(), b.get()));
+                localIndex.put(b.getLong(), new Value(b.getLong(), b.getInt(), id(), b.get()));
                 b.rewind();
             }
             log().index().putAll(localIndex);
@@ -195,7 +200,11 @@ public class File0LogSegment extends AbstractSegment {
                     putLong(key).putLong(position).putInt(offset).put(flags).putLong(System.nanoTime());
             buffer.flip();
             int size = indexWriteFileChannel.write(buffer);
-            log().index().put(key, new Index.Value(position, offset, id(), flags));
+            log().index().merge(key, new Value(position, offset, id(), flags),
+                    (v0, v1) -> v0.getSegmentId() < v1.getSegmentId()
+                            || (v0.getSegmentId() == v0.getSegmentId()
+                            && v0.getPosition() < v1.getPosition())
+                            ? v1 : v0);
             return size;
         } catch (IOException e) {
             throw new LogException("Error storing position seg: "
@@ -266,25 +275,32 @@ public class File0LogSegment extends AbstractSegment {
     public void compact() {
 
         if (this.id() != log().segment().id()) {
+            // TODO may be have a changes threshold to optimize at. No need to
+            FileChannel newIndex = null;
+            FileChannel newLog = null;
+
+            Path indexPath = Paths.get(indexFile.getAbsolutePath() + ".compact");
+            Path dataPath = Paths.get(logFile.getAbsolutePath() + ".compact");
+
             try (FileLock fl = metaFileChannel.tryLock()) {
                 if (fl != null && log().lastSegment().id() > id()) {
                     long start = System.currentTimeMillis();
                     FileChannel index = FileChannel.open(indexFile.toPath(), READ);
                     FileChannel dataLog = FileChannel.open(logFile.toPath(), READ);
 
-                    Path indexPath = Paths.get(indexFile.getAbsolutePath() + ".compact");
-                    Path dataPath = Paths.get(logFile.getAbsolutePath() + ".compact");
-
-                    FileChannel newIndex = null;
-                    FileChannel newLog = null;
+                  /* Map<Long, Value> segmentCurrentView = log().index().entrySet().stream()
+                            .filter(e -> e.getValue().getSegmentId() == id)
+                            .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+                    Map<Long, Value> segmentDiskView = new HashMap<>();*/
 
                     ByteBuffer bb = indexBuffer.get();
                     while (index.read(bb) != -1) {
                         bb.rewind();
                         Long key = bb.getLong();
                         bb.mark();
-                        Index.Value ov = new Index.Value(bb.getLong(), bb.getInt(), id(), bb.get());
-                        Index.Value cv = log().index().get(key);
+                        Value ov = new Value(bb.getLong(), bb.getInt(), id(), bb.get());
+                        boolean expired = System.currentTimeMillis() - bb.getLong() >= TimeUnit.DAYS.toMillis(10);
+                        Value cv = log().index().get(key);
 
                         if (cv != null) {
                             short curSegId = cv.getSegmentId();
@@ -304,6 +320,8 @@ public class File0LogSegment extends AbstractSegment {
                                 bb.putLong(pos);
                                 bb.rewind();
                                 newIndex.write(bb);
+                            } else if (cv.equals(ov) && expired) {
+                                // TODO repoint to compacted entry version
                             }
                         } else {
                             // TODO need to figure out if it should get deleted during compaction.
@@ -311,29 +329,48 @@ public class File0LogSegment extends AbstractSegment {
                         bb.rewind();
                     }
                     if (newLog != null) {
+
                         long oldSize = dataLog.size();
                         long newSize = newLog.size();
                         logger.info("Compacted segment {}:  {} -> {} in {} millis.",
                                 fullName, oldSize, newSize, (System.currentTimeMillis() - start));
                     }
 
+                    if (newIndex != null && newLog != null) {
+                        try {
+                            Files.move(indexPath, indexFile.toPath(), ATOMIC_MOVE, REPLACE_EXISTING, COPY_ATTRIBUTES);
+                        } catch (IOException e) {
+                            logger.error("Failed to move/rename compacted " + indexPath + " to " + indexFile.toPath());
+                            return;
+                        }
+                        try {
+                            Files.move(indexPath, indexFile.toPath(), ATOMIC_MOVE, REPLACE_EXISTING, COPY_ATTRIBUTES);
+                        } catch (IOException e) {
+                            logger.error("Failed to move/rename compacted " + indexPath + " to " + indexFile.toPath());
+                        }
+                    }
+
                 }
             } catch (IOException ioe) {
-                logger.error(String.format("Failed to compact segment %s due to error", fullName), ioe);
+                logger.error(String.format("Failed to compact segment %s due to an error.", fullName), ioe);
             }
+
         }
     }
 
     @Override
     // TODO avoid reading own changes. Need to optimize.
+    // TODO rework lastCatchUpPosition marker.
     public void catchUp() {
         long start = System.currentTimeMillis();
         try (FileChannel index = FileChannel.open(indexFile.toPath(), READ)) {
-            index.position(lastCatchUpPosition);
+            if (log().segment().id() == id()) {
+                index.position(lastCatchUpPosition);
+            }
             ByteBuffer bb = indexBuffer.get();
             while (index.read(bb) != -1) {
                 bb.flip();
-                log().index().put(bb.getLong(), new Index.Value(bb.getLong(), bb.getInt(), id(), bb.get()));
+                log().index().put(bb.getLong(), new Value(bb.getLong(), bb.getInt(), id(), bb.get()));
                 bb.rewind();
             }
         } catch (IOException io) {

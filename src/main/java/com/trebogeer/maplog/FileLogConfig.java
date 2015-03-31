@@ -1,6 +1,8 @@
 package com.trebogeer.maplog;
 
 import java.io.File;
+import java.nio.ByteBuffer;
+import java.util.function.Function;
 
 /**
  * @author dimav
@@ -16,10 +18,21 @@ public class FileLogConfig extends LogConfig {
     private String logDir = System.getProperty(FILE_LOG_DIRECTORY, System.getProperty("user.dir"));
     private int stopWritesAtPercent = Integer.getInteger(DENY_WRITES_AT_PERCENT, 5);
     private boolean lockFiles = Boolean.getBoolean(LOCK_FILES_ON_WRITE);
+    private Function<ByteBuffer, ByteBuffer> compactExpired = null;
+
+    public FileLogConfig(FileLogConfig other) {
+        this.logDir = other.logDir;
+        this.stopWritesAtPercent = other.stopWritesAtPercent;
+        this.lockFiles = other.lockFiles;
+        this.compactExpired = other.compactExpired;
+    }
+
+    public FileLogConfig() {
+    }
 
     @Override
     public FileLogConfig copy() {
-        return /*new FileLogConfig(this);*/this;
+        return new FileLogConfig(this);
     }
 
     /**
@@ -125,6 +138,19 @@ public class FileLogConfig extends LogConfig {
 
     public FileLogConfig withFileLocks(boolean lockFiles) {
         setLockFiles(lockFiles);
+        return this;
+    }
+
+    public Function<ByteBuffer, ByteBuffer> getCompactExpired() {
+        return compactExpired;
+    }
+
+    public void setCompactExpired(Function<ByteBuffer, ByteBuffer> compactExpired) {
+        this.compactExpired = compactExpired;
+    }
+
+    public FileLogConfig withFileLocks(Function<ByteBuffer, ByteBuffer> compactExpired) {
+        setCompactExpired(compactExpired);
         return this;
     }
 }

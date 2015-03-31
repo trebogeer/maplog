@@ -4,7 +4,7 @@ import com.codahale.metrics.JmxReporter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Slf4jReporter;
 import com.trebogeer.maplog.hash.Hash;
-import com.trebogeer.maplog.index.ConditionalHashMapIndex;
+import com.trebogeer.maplog.index.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,12 +12,12 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -29,6 +29,8 @@ import java.util.concurrent.TimeUnit;
  *         Date: 3/16/15
  *         Time: 12:14 PM
  */
+
+// TODO take a look at Zip File System Provider
 public abstract class AbstractLog implements Loggable, Log<Long> {
 
     private static final Logger logger = LoggerFactory.getLogger("JLOG.F");
@@ -44,7 +46,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
 
     private LogConfig config;
     protected final TreeMap<Short, Segment> segments = new TreeMap<>();
-    protected final Index<Long> index = new ConditionalHashMapIndex();
+    protected final Map<Long, Value> index = new ConcurrentHashMap<>();
     protected Segment currentSegment;
     private short nextSegmentId;
     private long lastFlush;
@@ -63,7 +65,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
 
 
     @Override
-    public Index<Long> index() {
+    public Map<Long, Value> index() {
         return index;
     }
 
@@ -132,8 +134,10 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     }
 
     @Override
+    // TODO check if compaction is in progress
     public synchronized void open() throws IOException {
         assertIsNotOpen();
+        // TODO rework config for meters
         if (config.isMertics()) {
             reporter.start();
             sl4jreproter.start(10, TimeUnit.SECONDS);
@@ -185,32 +189,8 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
             createInitialSegment();
         }
 
-        clean();
         logger.info("Loaded {} index in memory. Elapsed time millis : {}, total number of entries : {}",
                 name, System.currentTimeMillis() - start, index().size());
-    }
-
-    /**
-     * Cleans the log at startup.
-     * <p>
-     * In the event that a failure occurred during compaction, it's possible that the log could contain a significant
-     * gap in indexes between segments. When the log is opened, check segments to ensure that first and last indexes of
-     * each segment agree with other segments in the log. If not, remove all segments that appear prior to any index gap.
-     */
-    private void clean() throws IOException {
-        // TODO figure out sanity check with random keys
-        /*Long lastIndex = null;
-        Long compactIndex = null;
-        for (Segment segment : segments.values()) {
-            if (segment.id() != segments.lastKey() && (lastIndex == null || segment.id() > lastIndex + 1)) {
-                compactIndex = segment.index();
-            }
-            lastIndex = segment.lastIndex();
-        }
-
-        if (compactIndex != null) {
-            compact(compactIndex);
-        }*/
     }
 
     @Override
@@ -245,7 +225,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     public byte[] appendEntry(ByteBuffer entry, byte[] index, byte flags) throws IOException {
         long s = System.nanoTime();
         assertIsOpen();
-        checkRollOver();
+        rollOver();
         byte[] b = currentSegment.appendEntry(entry, index, flags);
         writes.update(System.nanoTime() - s, TimeUnit.NANOSECONDS);
         return b;
@@ -260,9 +240,9 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
         assertIsOpen();
         ByteBuffer result = null;
         long start = System.nanoTime();
-        Index.Value v = index().get(hash.hash(index));
+        Value v = index().get(hash.hash(index));
         if (v != null) {
-            result = segment(v.segmentId).getEntry(v.position, v.offset);
+            result = segment(v.getSegmentId()).getEntry(v.getPosition(), v.getOffset());
         }
         reads.update(System.nanoTime() - start, TimeUnit.NANOSECONDS);
         return result;
@@ -271,27 +251,41 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
 
     @Override
     // TODO this needs to be optimized. may be rollover in advance as it's quite heavy.
-    public synchronized void rollOver(short index) throws IOException {
-        // If the current segment is empty then just remove it.
-        if (currentSegment.isEmpty()) {
-            segments.remove(currentSegment.id());
-            currentSegment.close();
-            currentSegment.delete();
-            currentSegment = null;
-        } else {
-            currentSegment.flush();
+    public synchronized void rollOver() throws IOException {
+
+        if (currentSegment == null || currentSegment.isEmpty())
+            return;
+
+        boolean segmentSizeExceeded = currentSegment.size() >= config.getSegmentSize();
+
+        if (segmentSizeExceeded) {
+            if (checkSpaceAvailable()) {
+
+                // If the current segment is empty then just remove it.
+                if (!currentSegment.isEmpty()) {
+                    currentSegment.flush();
+                }
+
+                short newSegmentId = ++nextSegmentId;
+
+                currentSegment = createSegment(newSegmentId);
+                logger.info("Rolling over to new segment at index {}, total entries {}", index, index().size());
+
+                // Open the new segment.
+                currentSegment.open();
+
+                segments.put(newSegmentId, currentSegment);
+
+                // Reset the segment flush time
+                lastFlush = System.currentTimeMillis();
+
+            } else {
+                logger.error("Available space is beyond allowed minimum threshold. Disallowing further writes.");
+                throw new IOException("Available space is beyond allowed minimum threshold. Disallowing further writes.");
+            }
         }
 
-        currentSegment = createSegment(++nextSegmentId);
-        logger.info("Rolling over to new segment at index {}, total entries {}", index, index().size());
 
-        // Open the new segment.
-        currentSegment.open();
-
-        segments.put(index, currentSegment);
-
-        // Reset the segment flush time and check whether old segments need to be deleted.
-        lastFlush = System.currentTimeMillis();
     }
 
     @Override
@@ -357,29 +351,6 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
         currentSegment = createSegment(++nextSegmentId);
         currentSegment.open();
         segments.put((short) 1, currentSegment);
-    }
-
-    /**
-     * Checks whether the current segment needs to be rolled over to a new segment.
-     *
-     * @throws IOException if a new segment cannot be opened
-     */
-    private synchronized void checkRollOver() throws IOException {
-        if (currentSegment == null || currentSegment.isEmpty())
-            return;
-
-        boolean segmentSizeExceeded = currentSegment.size() >= config.getSegmentSize();
-        boolean segmentExpired = config.getSegmentInterval() < Long.MAX_VALUE
-                && System.currentTimeMillis() > currentSegment.timestamp() + config.getSegmentInterval();
-
-        if (segmentSizeExceeded || segmentExpired) {
-            if (checkSpaceAvailable()) {
-                rollOver((short) (currentSegment.id() + 1));
-            } else {
-                logger.error("Available space is beyond allowed minimum threshold. Disallowing further writes.");
-                throw new IOException("Available space is beyond allowed minimum threshold. Disallowing further writes.");
-            }
-        }
     }
 
     /**

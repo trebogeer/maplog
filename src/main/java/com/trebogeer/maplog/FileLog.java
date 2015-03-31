@@ -8,6 +8,8 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.FileStore;
+import java.nio.file.Files;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,6 +25,7 @@ import static java.lang.Thread.MIN_PRIORITY;
 import static java.lang.Thread.NORM_PRIORITY;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * @author dimav
@@ -38,6 +41,8 @@ public class FileLog extends AbstractLog {
     File partition = null;
     final ExecutorService catchUp;
     final ExecutorService compact;
+    final FileWatcher fileWatcher;
+    final CompactionScheduler compactionScheduler;
 
     public FileLog(String name, FileLogConfig config) {
         super(config);
@@ -46,12 +51,16 @@ public class FileLog extends AbstractLog {
         this.name = this.base.getAbsolutePath();
         this.catchUp = fixedThreadNamingExecutorService(1, "catch-up-thread-" + name().replaceAll(separator, "-"), NORM_PRIORITY);
         this.compact = fixedThreadNamingExecutorService(1, "compact-thread-" + name().replaceAll(separator, "-"), MIN_PRIORITY);
+        this.fileWatcher = new FileWatcher(this, base.getAbsoluteFile().getParentFile().toPath(), false);
+        // TODO move parameters to config
+        this.compactionScheduler = new CompactionScheduler(this, 6, HOURS);
     }
 
     /**
      * Works only on linux. Retrieving mounts, resolving symlinks, trying to match by path segments.
      */
     private void initPartitionInfo() {
+        // TODO switch to FileStore instead
         if (isLinux()) {
             File info = new File("/proc/mounts");
             if (info.exists()) {
@@ -117,7 +126,7 @@ public class FileLog extends AbstractLog {
         initPartitionInfo();
         super.open();
         final FileLog f = this;
-        catchUp.execute(new FileWatcher(this, base.getAbsoluteFile().getParentFile().toPath(), false));
+        catchUp.execute(fileWatcher);
         catchUp.execute(() -> {
             try {
                 Thread.sleep(MINUTES.toMillis(6));
@@ -149,8 +158,59 @@ public class FileLog extends AbstractLog {
 
     @Override
     public synchronized void close() throws IOException {
+        fileWatcher.shutdown();
+        compactionScheduler.shutdown();
         shutdownExecutor(2, TimeUnit.MINUTES, catchUp);
         shutdownExecutor(2, TimeUnit.MINUTES, compact);
         super.close();
+    }
+
+    private static class CompactionScheduler implements Runnable {
+
+        private final FileLog fl;
+        private final long interval;
+        private final TimeUnit tu;
+        private volatile boolean stop = false;
+
+        public CompactionScheduler(FileLog fl, long interval, TimeUnit tu) {
+            this.fl = fl;
+            this.interval = interval;
+            this.tu = tu;
+        }
+
+        @Override
+        public void run() {
+            {
+                try {
+
+                    Thread.sleep(MINUTES.toMillis(5));
+
+                    while (true) {
+                        fl.compact();
+                        long nextRun = System.currentTimeMillis() + tu.toMillis(interval);
+                        long time = System.currentTimeMillis();
+                        while (time < nextRun) {
+
+                            if (stop) {
+                                return;
+                            } else {
+                                Thread.sleep(SECONDS.toMillis(5));
+                                time = System.currentTimeMillis();
+                            }
+
+                        }
+                    }
+
+                } catch (IOException io) {
+                    logger.error("Compaction failed for log " + fl.name(), io);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+
+        public synchronized void shutdown() {
+            this.stop = true;
+        }
     }
 }

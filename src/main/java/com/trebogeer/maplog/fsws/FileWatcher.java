@@ -66,28 +66,36 @@ public class FileWatcher implements Runnable {
                         String ename = event.context().toString();
                         logger.info(ename);
                         if (ename.endsWith(".index")) {
-                            if (event.kind().equals(ENTRY_MODIFY)) {
+                            try {
                                 String st = ename.substring(ename.lastIndexOf('-') + 1);
-                                try {
-                                    short id = Short.valueOf(st.substring(0, st.lastIndexOf('.')));
+                                short id = Short.valueOf(st.substring(0, st.lastIndexOf('.')));
+                                if (event.kind().equals(ENTRY_MODIFY)) {
+
                                     Segment s = log.segment(id);
                                     if (s != null) {
                                         s.catchUp();
                                     }
-                                } catch (NumberFormatException nfe) {
-                                    logger.error("Unknown index file " + ename, nfe);
+                                } else if (event.kind().equals(ENTRY_CREATE)) {
+                                    Segment s = log.segment(id);
+                                    if (s == null) {
+                                        log.rollOver();
+                                        s = log.lastSegment();
+                                    }
+                                    if (s != null) {
+                                        s.catchUp();
+                                    } else {
+                                        logger.error("Failed to rollover seg " + ename);
+                                    }
                                 }
+                            } catch (NumberFormatException nfe) {
+                                logger.error("Unknown index file " + ename, nfe);
                             }
-                        }
-                        /*if (ename.equals(StandardWatchEventKinds.ENTRY_MODIFY.name())) {
-                            logger.info(event.kind().name());
-                            // logger.info(event.count() + "");
-                            // logger.info(event.context() + "");
-                        } else if (ename.equals(StandardWatchEventKinds.ENTRY_CREATE)) {
+                        } else if (ename.endsWith(".index.compact")) {
+                            String st = ename.substring(ename.lastIndexOf('-') + 1);
+                            short id = Short.valueOf(st.substring(0, st.lastIndexOf(".index.compact")));
+                            // TODO open compacted file, change index pointers for already migrated values to compacted file
 
-                        } else *//*DELETE EVENT*//* {
-                            logger.debug(event.kind().name());
-                        }*/
+                        }
                     }
 
                     // if the watched directed gets deleted, get out of run method

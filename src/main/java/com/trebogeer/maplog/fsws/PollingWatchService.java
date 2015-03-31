@@ -1,7 +1,5 @@
 package com.trebogeer.maplog.fsws;
 
-import com.sun.nio.file.SensitivityWatchEventModifier;
-
 import java.io.IOException;
 import java.nio.file.ClosedWatchServiceException;
 import java.nio.file.DirectoryIteratorException;
