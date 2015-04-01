@@ -8,8 +8,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.FileStore;
-import java.nio.file.Files;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -183,7 +181,7 @@ public class FileLog extends AbstractLog {
             {
                 try {
 
-                    Thread.sleep(MINUTES.toMillis(5));
+                    Thread.sleep(SECONDS.toMillis(10));
 
                     while (true) {
                         fl.compact();

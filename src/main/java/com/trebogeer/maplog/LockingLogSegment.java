@@ -30,10 +30,10 @@ public class LockingLogSegment extends File0LogSegment {
     public byte[] appendEntry(ByteBuffer entry, byte[] index, byte flags) {
         assertIsOpen();
         lock.lock();
-        long lpw = lastWritePositionLog.get();
-        long lpi = lastWritePositionIndex.get();
-        try (FileLock fl = logWriteFileChannel.lock(lpw, Long.MAX_VALUE - lpw - 1, false);
-             FileLock il = indexWriteFileChannel.lock(lpi, Long.MAX_VALUE - lpi - 1, false)) {
+        //long lpw = lastWritePositionLog.get();
+        //long lpi = lastWritePositionIndex.get();
+        try (FileLock fl = logWriteFileChannel.lock(/*lpw, Long.MAX_VALUE - lpw - 1, false*/);
+             FileLock il = indexWriteFileChannel.lock(/*lpi, Long.MAX_VALUE - lpi - 1, false*/)) {
             entry.rewind();
             int size;
             long p;
@@ -44,8 +44,9 @@ public class LockingLogSegment extends File0LogSegment {
             lastWritePositionLog.lazySet(p);
             storePosition(index, p - size, size, flags);
             // need no sync, approx position is ok for this purpose
-            lastWritePositionIndex.lazySet(indexWriteFileChannel.position());
+         //   lastWritePositionIndex.lazySet(indexWriteFileChannel.position());
             isEmpty = false;
+            flush();
         } catch (IOException e) {
             throw new LogException("error appending entry", e);
         } finally {

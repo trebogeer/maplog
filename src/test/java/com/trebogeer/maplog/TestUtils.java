@@ -57,7 +57,7 @@ public final class TestUtils {
 
             @Override
             public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                Files.delete(dir);
+                //Files.delete(dir);
                 return FileVisitResult.CONTINUE;
             }
 

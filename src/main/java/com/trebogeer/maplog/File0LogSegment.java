@@ -180,6 +180,7 @@ public class File0LogSegment extends AbstractSegment {
             int size = logWriteFileChannel.write(entry);
             storePosition(index, logWriteFileChannel.position() - size, size, flags);
             isEmpty = false;
+            flush();
         } catch (IOException e) {
             throw new LogException("Error appending entry seg: " + fullName, e);
         } finally {
