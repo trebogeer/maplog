@@ -230,7 +230,7 @@ public class PollingWatchService
             this.entries = new HashMap<>();
 
             // get the initial entries in the directory
-            try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, (e) -> e.endsWith(".index"))) {
                 for (Path entry : stream) {
                     // don't follow links
                     long lastModified =
@@ -301,7 +301,7 @@ public class PollingWatchService
             // open directory
             DirectoryStream<Path> stream;
             try {
-                stream = Files.newDirectoryStream(watchable());
+                stream = Files.newDirectoryStream(watchable(), (e) -> e.endsWith(".index"));
             } catch (IOException x) {
                 // directory is no longer accessible so cancel key
                 cancel();
