@@ -4,6 +4,8 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.Map;
 
 /**
  * @author dimav
@@ -43,8 +45,8 @@ public interface Loggable extends Closeable, Serializable {
     /**
      * Appends an entry to the logger with specified id.
      *
-     * @param entry The entry to append.
-     * @param key The entry key.
+     * @param entry     The entry to append.
+     * @param key       The entry key.
      * @param metaFlags One byte of app level meta flags.
      * @return The appended entry index.
      * @throws IllegalStateException If the log is not open.
@@ -52,6 +54,18 @@ public interface Loggable extends Closeable, Serializable {
      * @throws java.io.IOException   If a new segment cannot be opened
      */
     byte[] appendEntry(ByteBuffer entry, byte[] key, byte metaFlags) throws IOException;
+
+
+    /**
+     * Appends an entry to the logger with specified id.
+     *
+     * @param entries The entries to append.
+     * @return The appended entry index.
+     * @throws IllegalStateException If the log is not open.
+     * @throws NullPointerException  If the entry is null.
+     * @throws java.io.IOException   If a new segment cannot be opened
+     */
+    List<byte[]> appendEntries(Map<byte[], Entry> entries) throws IOException;
 
     /**
      * Flushes the log to disk.
@@ -95,12 +109,28 @@ public interface Loggable extends Closeable, Serializable {
             throw new IllegalStateException("The log is already open.");
     }
 
-//    /**
+    //    /**
 //     * Asserts whether the log contains the given index.
 //     */
 //    default void assertContainsIndex(long index) {
 //        if (!containsIndex(index))
 //            throw new IllegalStateException(String.format("Log does not contain index %d", index));
 //    }
+    public static final class Entry {
+        ByteBuffer entry;
+        byte meta;
 
+        public Entry(ByteBuffer entry, byte flags) {
+            this.entry = entry;
+            this.meta = flags;
+        }
+
+        public ByteBuffer getEntry() {
+            return entry;
+        }
+
+        public byte getMeta() {
+            return meta;
+        }
+    }
 }

@@ -13,6 +13,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
@@ -187,6 +190,27 @@ public class File0LogSegment extends AbstractSegment {
             lock.unlock();
         }
         return index;
+    }
+
+    /**
+     * Appends an entry to the logger with specified id.
+     *
+     * @param entries The entries to append.
+     * @return The successfully appended entries list.
+     * @throws IllegalStateException If the log is not open.
+     * @throws NullPointerException  If the entry is null.
+     * @throws java.io.IOException   If a new segment cannot be opened
+     */
+    @Override
+    public List<byte[]> appendEntries(Map<byte[], Entry> entries) throws IOException {
+        if (entries == null || entries.isEmpty()) return null;
+        List<byte[]> keys = new LinkedList<>();
+        for (Map.Entry<byte[], Entry> entry : entries.entrySet()) {
+            if (entry != null && entry.getValue() != null) {
+                keys.add(appendEntry(entry.getValue().getEntry(), entry.getKey(), entry.getValue().getMeta()));
+            }
+        }
+        return keys;
     }
 
     /**

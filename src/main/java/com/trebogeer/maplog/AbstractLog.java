@@ -231,6 +231,16 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
         return b;
     }
 
+    @Override
+    public List<byte[]> appendEntries(Map<byte[], Entry> entries) throws IOException {
+        long s = System.nanoTime();
+        assertIsOpen();
+        rollOver();
+        List<byte[]> b = currentSegment.appendEntries(entries);
+        writes.update(System.nanoTime() - s, TimeUnit.NANOSECONDS);
+        return b;
+    }
+
     /**
      * Returns the entry for the {@code index} by checking the current segment first, then looking up
      * the correct segment.
@@ -269,7 +279,8 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
                 short newSegmentId = ++nextSegmentId;
 
                 currentSegment = createSegment(newSegmentId);
-                logger.info("Rolling over to new segment at index {}, total entries {}", index, index().size());
+                logger.info("Rolling over to new segment {}, total entries {}",
+                        name() + "/" + currentSegment.id(), index().size());
 
                 // Open the new segment.
                 currentSegment.open();

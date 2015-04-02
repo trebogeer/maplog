@@ -123,8 +123,8 @@ public class FileLog extends AbstractLog {
         initPartitionInfo();
         super.open();
         final FileLog f = this;
-      //  catchUp.execute(fileWatcher);
-      //  compact.execute(compactionScheduler);
+        catchUp.execute(fileWatcher);
+        compact.execute(compactionScheduler);
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
