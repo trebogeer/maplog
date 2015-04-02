@@ -109,13 +109,6 @@ public interface Loggable extends Closeable, Serializable {
             throw new IllegalStateException("The log is already open.");
     }
 
-    //    /**
-//     * Asserts whether the log contains the given index.
-//     */
-//    default void assertContainsIndex(long index) {
-//        if (!containsIndex(index))
-//            throw new IllegalStateException(String.format("Log does not contain index %d", index));
-//    }
     public static final class Entry {
         ByteBuffer entry;
         byte meta;

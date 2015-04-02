@@ -61,9 +61,9 @@ public interface Log<K> extends Serializable {
     /**
      * Compacts the log, removing obsolete entries.
      *
-     * @throws IllegalArgumentException  if {@code index} is not the first index of a segment or if
-     *                                   {@code index} represents the last segment in the log
-     * @throws IOException               If the log failed to compact a segment.
+     * @throws IllegalArgumentException if {@code index} is not the first index of a segment or if
+     *                                  {@code index} represents the last segment in the log
+     * @throws IOException              If the log failed to compact a segment.
      */
     void compact() throws IOException;
 
@@ -88,8 +88,17 @@ public interface Log<K> extends Serializable {
      * @return The entry at the given index, or {@code null} if the entry doesn't exist.
      * @throws IllegalStateException If the log is not open.
      */
-    // TODO as it's Log specific now.
     ByteBuffer getEntry(byte[] key);
+
+
+    /**
+     * Gets metadata flags by index key.
+     *
+     * @param key The index key of the entry to get flags for.
+     * @return The meta flags at the given index, or {@code null} if the entry doesn't exist.
+     * @throws java.lang.IllegalStateException if the log is not open.
+     */
+    Byte getMetaFlags(byte[] key);
 
     /**
      * Gets a log name.

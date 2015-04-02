@@ -109,7 +109,6 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     public Segment segment(short index) {
         assertIsOpen();
         Map.Entry<Short, Segment> segment = segments.floorEntry(index);
-        //assertContainsIndex(index);
         return segment.getValue();
     }
 
@@ -258,6 +257,19 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
         return result;
     }
 
+    /**
+     * Gets metadata flags by index key.
+     *
+     * @param key The index key of the entry to get flags for.
+     * @return The meta flags at the given index, or {@code null} if the entry doesn't exist.
+     * @throws IllegalStateException if the log is not open.
+     */
+    @Override
+    public Byte getMetaFlags(byte[] key) {
+        assertIsOpen();
+        Value v = index.get(hash.hash(key));
+        return v == null ? null : v.getFlags();
+    }
 
     @Override
     // TODO this needs to be optimized. may be rollover in advance as it's quite heavy.
