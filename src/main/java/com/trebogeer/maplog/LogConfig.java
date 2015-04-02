@@ -27,9 +27,18 @@ public class LogConfig {
     private boolean mertics = System.getProperty(LOG_METRICS) == null || Boolean.getBoolean(LOG_METRICS);
     private Supplier<Hash> hashSupplier = MurMur3.murmur3();
 
-    // TODO implement
+    public LogConfig(LogConfig other) {
+        this.segmentSize = other.segmentSize;
+        this.flushOnWrite = other.flushOnWrite;
+        this.mertics = other.mertics;
+        this.hashSupplier = other.hashSupplier;
+    }
+
     public LogConfig copy() {
-        return this;
+        return new LogConfig(this);
+    }
+
+    public LogConfig() {
     }
 
     /**

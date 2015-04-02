@@ -21,6 +21,7 @@ public class FileLogConfig extends LogConfig {
     private Function<ByteBuffer, ByteBuffer> compactExpired = null;
 
     public FileLogConfig(FileLogConfig other) {
+        super(other);
         this.logDir = other.logDir;
         this.stopWritesAtPercent = other.stopWritesAtPercent;
         this.lockFiles = other.lockFiles;

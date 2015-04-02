@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
@@ -49,6 +50,7 @@ public class File0LogSegment extends AbstractSegment {
     protected ReentrantLock lock = new ReentrantLock();
     protected long lastCatchUpPosition = 0;
     protected String fullName;
+    protected AtomicLong maxSeenPosition = new AtomicLong(0);
     protected final ThreadLocal<ByteBuffer> indexBuffer = new ThreadLocal<ByteBuffer>() {
 
         @Override
@@ -116,8 +118,9 @@ public class File0LogSegment extends AbstractSegment {
         logWriteFileChannel = FileChannel.open(this.logFile.toPath(), CREATE, APPEND);
         logReadFileChannel = FileChannel.open(this.logFile.toPath(), READ);
 
-        logWriteFileChannel.position(logWriteFileChannel.size());
-        logReadFileChannel.position(logReadFileChannel.size());
+        long dataLogSize;
+        logWriteFileChannel.position((dataLogSize = logWriteFileChannel.size()));
+        //logReadFileChannel.position(logReadFileChannel.size());
 
         indexWriteFileChannel = FileChannel.open(this.indexFile.toPath(), CREATE, APPEND);
         indexReadFileChannel = FileChannel.open(this.indexFile.toPath(), READ);
@@ -138,7 +141,7 @@ public class File0LogSegment extends AbstractSegment {
                     fullName, System.currentTimeMillis() - start, localIndex.size());
         }
         indexReadFileChannel.position(indexFileSize);
-
+        maxSeenPosition.set(dataLogSize);
         if (indexFileSize > 0) {
             isEmpty = false;
         }
@@ -159,12 +162,7 @@ public class File0LogSegment extends AbstractSegment {
     @Override
     public long size() {
         assertIsOpen();
-        try {
-            // TODO optimize to return approx value may be. This is to estimate if rollover is needed mostly.
-            return Math.max(logWriteFileChannel.position(), logReadFileChannel.position());
-        } catch (IOException e) {
-            throw new LogException("Error retrieving size from file channel seg: " + fullName, e);
-        }
+        return maxSeenPosition.get();
     }
 
 
@@ -178,7 +176,9 @@ public class File0LogSegment extends AbstractSegment {
             entry.rewind();
             lock.lock();
             int size = logWriteFileChannel.write(entry);
-            storePosition(index, logWriteFileChannel.position() - size, size, flags);
+            long pos = logWriteFileChannel.position();
+            maxSeenPosition.set(pos);
+            storePosition(index, pos - size, size, flags);
             isEmpty = false;
             flush();
         } catch (IOException e) {
@@ -217,8 +217,8 @@ public class File0LogSegment extends AbstractSegment {
     public ByteBuffer getEntry(long position, int offset) {
         assertIsOpen();
         try {
-            ByteBuffer buffer = ByteBuffer.allocate(offset /*- 4*/);
-            logReadFileChannel.read(buffer, position /*+ 4*/);
+            ByteBuffer buffer = ByteBuffer.allocate(offset);
+            logReadFileChannel.read(buffer, position);
             buffer.flip();
             return buffer;
         } catch (IOException e) {
@@ -374,6 +374,8 @@ public class File0LogSegment extends AbstractSegment {
                 log().index().put(bb.getLong(), new Value(bb.getLong(), bb.getInt(), id(), bb.get()));
                 bb.rewind();
             }
+            lastCatchUpPosition = index.position();
+            maxSeenPosition.getAndUpdate((p) -> p > lastCatchUpPosition ? p : lastCatchUpPosition);
         } catch (IOException io) {
             logger.error(String.format("Failed to catch up on segment %d.", id()), io);
         }

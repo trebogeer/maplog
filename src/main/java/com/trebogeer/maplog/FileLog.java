@@ -22,7 +22,6 @@ import static java.io.File.separator;
 import static java.lang.Thread.MIN_PRIORITY;
 import static java.lang.Thread.NORM_PRIORITY;
 import static java.util.concurrent.TimeUnit.HOURS;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
@@ -124,22 +123,8 @@ public class FileLog extends AbstractLog {
         initPartitionInfo();
         super.open();
         final FileLog f = this;
-        catchUp.execute(fileWatcher);
-        catchUp.execute(() -> {
-            try {
-                Thread.sleep(MINUTES.toMillis(6));
-                // TODO add stop condition
-                while (true) {
-                    f.compact();
-                    Thread.sleep(HOURS.toMillis(6));
-                }
-
-            } catch (IOException io) {
-                logger.error("Compaction failed for log " + name(), io);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        });
+      //  catchUp.execute(fileWatcher);
+      //  compact.execute(compactionScheduler);
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
