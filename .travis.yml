@@ -1,0 +1,11 @@
+language: java
+jdk:
+    # - oraclejdk7
+     - oraclejdk8
+notifications:
+    email:
+        recipients:
+        on_success: change
+        on_failure: change
+install: mvn clean install
+script: mvn test

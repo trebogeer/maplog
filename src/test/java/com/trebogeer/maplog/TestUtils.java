@@ -22,8 +22,8 @@ public final class TestUtils {
 
     static final Logger utlogger = LoggerFactory.getLogger("UNIT.TEST");
 
-    static int total_workers = 2;
-    static int work_size_per_worker = 10000;
+    static int total_workers = 4;
+    static int work_size_per_worker = 100000;
     static int segment_size = 128 * 1024 * 1024;
 
     public static final int BUFFER = 0x2000;

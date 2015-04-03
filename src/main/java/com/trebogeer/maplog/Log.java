@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.TreeMap;
 
 /**
@@ -27,7 +28,7 @@ public interface Log<K> extends Serializable {
      *
      * @return A map of segments in the log.
      */
-    TreeMap<Short, Segment> segments();
+    NavigableMap<Short, Segment> segments();
 
     /**
      * Returns the current log segment.

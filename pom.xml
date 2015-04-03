@@ -152,6 +152,12 @@
             <version>2.1</version>
             <!--<scope>test</scope>-->
         </dependency>
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>6.8.8</version>
+            <scope>test</scope>
+        </dependency>
         <!-- will stick to concurrent hash map for now from standard java library, below is smth to
          take a look at if needed -->
         <!--<dependency>-->

@@ -15,9 +15,11 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -45,7 +47,8 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     private static com.codahale.metrics.Timer reads = REGISTRY.timer("jlog.reads");
 
     private LogConfig config;
-    protected final TreeMap<Short, Segment> segments = new TreeMap<>();
+   // protected final TreeMap<Short, Segment> segments = new TreeMap<>();
+    protected final ConcurrentSkipListMap<Short, Segment> segments = new ConcurrentSkipListMap<>();
     protected final Map<Long, Value> index = new ConcurrentHashMap<>();
     protected Segment currentSegment;
     private short nextSegmentId;
@@ -88,7 +91,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
      * Returns a collection of log segments.
      */
     @Override
-    public TreeMap<Short, Segment> segments() {
+    public NavigableMap<Short, Segment> segments() {
         return segments;
     }
 
