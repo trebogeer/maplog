@@ -38,6 +38,11 @@
         </snapshotRepository>
     </distributionManagement>
 
+    <ciManagement>
+        <system>travis-ci</system>
+        <url>https://travis-ci.org/trebogeer/maplog/</url>
+    </ciManagement>
+
     <scm>
         <connection>scm:git:https://github.com/trebogeer/maplog.git</connection>
         <developerConnection>scm:git:https://github.com/trebogeer/maplog.git</developerConnection>
