@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -59,7 +60,7 @@ public class File0LogSegment extends AbstractSegment {
 
         @Override
         protected ByteBuffer initialValue() {
-            return ByteBuffer.allocateDirect(INDEX_ENTRY_SIZE);
+            return ByteBuffer.allocate(INDEX_ENTRY_SIZE);
         }
 
         @Override
@@ -314,11 +315,6 @@ public class File0LogSegment extends AbstractSegment {
                     FileChannel index = FileChannel.open(indexFile.toPath(), READ);
                     FileChannel dataLog = FileChannel.open(logFile.toPath(), READ);
 
-                  /* Map<Long, Value> segmentCurrentView = log().index().entrySet().stream()
-                            .filter(e -> e.getValue().getSegmentId() == id)
-                            .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
-                    Map<Long, Value> segmentDiskView = new HashMap<>();*/
-
                     ByteBuffer bb = indexBuffer.get();
                     while (index.read(bb) != -1) {
                         bb.rewind();
@@ -394,9 +390,10 @@ public class File0LogSegment extends AbstractSegment {
                 index.position(lastCatchUpPosition);
             }
             ByteBuffer bb = indexBuffer.get();
-            while (index.read(bb) != -1) {
-                int retryAttempts = 0;
-                while (bb.limit() < INDEX_ENTRY_SIZE
+            int read;
+            while ((read = index.read(bb)) != -1 && read == INDEX_ENTRY_SIZE) {
+
+ /*               while (bb.limit() < INDEX_ENTRY_SIZE
                         && retryAttempts < CATCH_UP_RETRIES) {
                     logger.debug("Index entry buffer if not fully read. Bytes read: {}, bytes expected {}"
                             , bb.limit(), INDEX_ENTRY_SIZE);
@@ -407,18 +404,25 @@ public class File0LogSegment extends AbstractSegment {
                     }
                     retryAttempts++;
                     if (retryAttempts > CATCH_UP_RETRIES) {
-                        logger.info("Failed to retrieve index entry (read: {}, expected: {})" +
+                        logger.error("Failed to retrieve index entry (read: {}, expected: {})" +
                                         " and exceeded maximum number ({}) of retry attempts. Aborting catchup." +
                                         " Either index is corrupted or storage is not accessible.",
                                 bb.limit(), INDEX_ENTRY_SIZE, CATCH_UP_RETRIES);
                         return;
                     }
-                }
+                }*/
 
                 bb.flip();
-                log().index().put(bb.getLong(), new Value(bb.getLong(), bb.getInt(), id(), bb.get()));
+                try {
+                    log().index().put(bb.getLong(), new Value(bb.getLong(), bb.getInt(), id(), bb.get()));
+                } catch (BufferUnderflowException e) {
+                    logger.error("Failed to retrieve index entry. Buffer - pos: {}, limit: {}, expected: {}",
+                            bb.position(), bb.limit(), INDEX_ENTRY_SIZE);
+                    return;
+                }
                 bb.rewind();
             }
+            logger.debug("Catch up {} last buffer size: {}", fullName, read);
             lastCatchUpPosition = index.position();
             maxSeenPosition.getAndUpdate((p) -> p > lastCatchUpPosition ? p : lastCatchUpPosition);
         } catch (IOException io) {
