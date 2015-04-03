@@ -48,7 +48,7 @@ public class FileLog extends AbstractLog {
         this.name = this.base.getAbsolutePath();
         this.catchUp = fixedThreadNamingExecutorService(1, "catch-up-thread-" + name().replaceAll(separator, "-"), NORM_PRIORITY);
         this.compact = fixedThreadNamingExecutorService(1, "compact-thread-" + name().replaceAll(separator, "-"), MIN_PRIORITY);
-        this.fileWatcher = new FileWatcher(this, base.getAbsoluteFile().getParentFile().toPath(), false);
+        this.fileWatcher = new FileWatcher(this, base.getAbsoluteFile().getParentFile().toPath(), true);
         // TODO move parameters to config
         this.compactionScheduler = new CompactionScheduler(this, 6, HOURS);
     }

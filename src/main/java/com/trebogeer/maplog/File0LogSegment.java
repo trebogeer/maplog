@@ -38,6 +38,7 @@ public class File0LogSegment extends AbstractSegment {
     protected static final Logger logger = LoggerFactory.getLogger("JLOG.F.SEGMENT");
 
     private static final int INDEX_ENTRY_SIZE = 29;
+    private static final int CATCH_UP_RETRIES = 5;
 
     private final FileLog log;
     private final File logFile;
@@ -394,6 +395,26 @@ public class File0LogSegment extends AbstractSegment {
             }
             ByteBuffer bb = indexBuffer.get();
             while (index.read(bb) != -1) {
+                int retryAttempts = 0;
+                while (bb.limit() < INDEX_ENTRY_SIZE
+                        && retryAttempts < CATCH_UP_RETRIES) {
+                    logger.debug("Index entry buffer if not fully read. Bytes read: {}, bytes expected {}"
+                            , bb.limit(), INDEX_ENTRY_SIZE);
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    retryAttempts++;
+                    if (retryAttempts > CATCH_UP_RETRIES) {
+                        logger.info("Failed to retrieve index entry (read: {}, expected: {})" +
+                                        " and exceeded maximum number ({}) of retry attempts. Aborting catchup." +
+                                        " Either index is corrupted or storage is not accessible.",
+                                bb.limit(), INDEX_ENTRY_SIZE, CATCH_UP_RETRIES);
+                        return;
+                    }
+                }
+
                 bb.flip();
                 log().index().put(bb.getLong(), new Value(bb.getLong(), bb.getInt(), id(), bb.get()));
                 bb.rewind();
