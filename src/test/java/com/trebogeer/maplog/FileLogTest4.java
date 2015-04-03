@@ -1,5 +1,7 @@
 package com.trebogeer.maplog;
 
+import org.testng.annotations.Test;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -55,6 +57,11 @@ public class FileLogTest4 {
                 utlogger.error("IO - cleanup", e);
             }
         }
+    }
+
+    @Test
+    public void test(){
+        main();
     }
 
 }
