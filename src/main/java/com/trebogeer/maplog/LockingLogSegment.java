@@ -61,6 +61,7 @@ public class LockingLogSegment extends File0LogSegment {
      * @throws java.io.IOException   If a new segment cannot be opened
      */
     @Override
+    // TODO publish keys after they are flushed on disk
     public List<byte[]> appendEntries(Map<byte[], Entry> entries) throws IOException {
         if (entries == null || entries.isEmpty()) return null;
         assertIsOpen();

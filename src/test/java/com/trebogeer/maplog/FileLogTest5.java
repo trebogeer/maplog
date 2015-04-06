@@ -36,7 +36,7 @@ public class FileLogTest5 {
         ExecutorService es = Executors.newFixedThreadPool(total_workers);
 
         String path = System.getProperty("user.home") + File.separator + /*"tmp"*/"nfsshare" + File.separator;
-        InputStream fis = FileLogTest1.class.getResourceAsStream("/image");
+        InputStream fis = FileLogTest1.class.getResourceAsStream("/48060-high-res-ship.jpg");
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try {
             TestUtils.pipe(fis, baos);
@@ -71,7 +71,7 @@ public class FileLogTest5 {
 
                         bb.rewind();
                         entryMap.put(String.format(key_template, i).getBytes(), new Loggable.Entry(bb, (byte) 7));
-                        if (entryMap.size() == 100) {
+                        if (entryMap.size() == 25) {
 
                             try {
                                 fileLog.appendEntries(entryMap);

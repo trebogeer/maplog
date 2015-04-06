@@ -100,7 +100,7 @@ public class FileLogConfig extends LogConfig {
     }
 
     @Override
-    public FileLogConfig withSegmentSize(int segmentSize) {
+    public FileLogConfig withSegmentSize(long segmentSize) {
         setSegmentSize(segmentSize);
         return this;
     }

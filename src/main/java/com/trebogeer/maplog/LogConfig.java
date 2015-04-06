@@ -22,7 +22,7 @@ public class LogConfig {
     private static final String DEFAULT_CONFIGURATION = "log-defaults";
     private static final String CONFIGURATION = "log";
 
-    private int segmentSize = Integer.getInteger(LOG_SEGMENT_SIZE, Integer.MAX_VALUE);
+    private long segmentSize = Long.getLong(LOG_SEGMENT_SIZE, Integer.MAX_VALUE);
     private boolean flushOnWrite = System.getProperty(LOG_FLUSH_ON_WRITE) == null || Boolean.getBoolean(LOG_FLUSH_ON_WRITE);
     private boolean mertics = System.getProperty(LOG_METRICS) == null || Boolean.getBoolean(LOG_METRICS);
     private Supplier<Hash> hashSupplier = MurMur3.murmur3();
@@ -47,7 +47,7 @@ public class LogConfig {
      * @param segmentSize The log segment size in bytes.
      * @throws java.lang.IllegalArgumentException If the segment size is not positive
      */
-    public void setSegmentSize(int segmentSize) {
+    public void setSegmentSize(long segmentSize) {
         if (segmentSize <= 0) throw new IllegalArgumentException("Segment size cannot be negative or 0.");
         this.segmentSize = segmentSize;
     }
@@ -57,7 +57,7 @@ public class LogConfig {
      *
      * @return The log segment size in bytes.
      */
-    public int getSegmentSize() {
+    public long getSegmentSize() {
         return this.segmentSize;
     }
 
@@ -68,7 +68,7 @@ public class LogConfig {
      * @return The log configuration.
      * @throws java.lang.IllegalArgumentException If the segment size is not positive
      */
-    public LogConfig withSegmentSize(int segmentSize) {
+    public LogConfig withSegmentSize(long segmentSize) {
         setSegmentSize(segmentSize);
         return this;
     }
@@ -89,7 +89,7 @@ public class LogConfig {
      * @return The log segment interval.
      */
     public long getSegmentInterval() {
-        return Long.MAX_VALUE;
+        return 0;
     }
 
     /**

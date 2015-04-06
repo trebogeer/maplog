@@ -35,7 +35,7 @@ public class FileLogTest2 {
         int crc = Utils.src32_t(image);
         try (FileLog fileLog = new FileLog("images1", new FileLogConfig().withDirectory(path))) {
             fileLog.open();
-            for (int ii = 0; ii < 1; ii++) {
+            for (int ii = 0; ii < 100; ii++) {
                 long start = System.currentTimeMillis();
                 for (int i = 0; i < total_workers * work_size_per_worker; i++) {
                     String key = String.format(key_template, i);

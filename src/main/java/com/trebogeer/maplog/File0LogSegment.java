@@ -39,9 +39,8 @@ public class File0LogSegment extends AbstractSegment {
     protected static final Logger logger = LoggerFactory.getLogger("JLOG.F.SEGMENT");
 
     private static final int INDEX_ENTRY_SIZE = 29;
-    private static final int CATCH_UP_RETRIES = 5;
 
-    private final FileLog log;
+    protected final FileLog log;
     private final File logFile;
     private final File indexFile;
     private final File metadataFile;
@@ -422,7 +421,9 @@ public class File0LogSegment extends AbstractSegment {
                 }
                 bb.rewind();
             }
-            logger.debug("Catch up {} last buffer size: {}", fullName, read);
+            if (read != -1) {
+                logger.debug("Catch up {} last buffer size: {}", fullName, read);
+            }
             lastCatchUpPosition = index.position();
             maxSeenPosition.getAndUpdate((p) -> p > lastCatchUpPosition ? p : lastCatchUpPosition);
         } catch (IOException io) {
