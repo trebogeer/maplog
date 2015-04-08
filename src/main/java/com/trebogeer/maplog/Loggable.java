@@ -50,6 +50,7 @@ public interface Loggable extends Closeable, Serializable {
      * @param metaFlags One byte of app level meta flags.
      * @return The appended entry index.
      * @throws IllegalStateException If the log is not open.
+     * @throws IllegalArgumentException If entry is invalid.
      * @throws NullPointerException  If the entry is null.
      * @throws java.io.IOException   If a new segment cannot be opened
      */
@@ -62,6 +63,7 @@ public interface Loggable extends Closeable, Serializable {
      * @param entries The entries to append.
      * @return The appended entry index.
      * @throws IllegalStateException If the log is not open.
+     * @throws IllegalArgumentException If at least one of teh entries is invalid.
      * @throws NullPointerException  If the entry is null.
      * @throws java.io.IOException   If a new segment cannot be opened
      */

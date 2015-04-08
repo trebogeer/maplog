@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
+import static com.trebogeer.maplog.TestUtils.test_image;
+
 /**
  * @author dimav
  *         Date: 3/16/15
@@ -15,7 +17,7 @@ public class FileLogTest1 {
 
     public static void main(String... args) {
         String path = System.getProperty("user.home") + File.separator + "tmp" + File.separator;
-        InputStream fis = FileLogTest1.class.getResourceAsStream("/image");
+        InputStream fis = FileLogTest1.class.getResourceAsStream(test_image);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try {
             TestUtils.pipe(fis, baos);

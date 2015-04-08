@@ -19,7 +19,7 @@ public class FileLogTest4 {
 
         String path = System.getProperty("user.home") + File.separator + "nfsshare"/*"tmp4"*/ + File.separator;
         String body = "yrtd_prod_501206901?hei=624&wid=624&op_sharpen=1";
-        int crc = Utils.src32_t(body.getBytes());
+        int crc = Utils.crc32_t(body.getBytes());
         ByteBuffer b = ByteBuffer.wrap(body.getBytes());
         try (FileLog fileLog = new FileLog("images1", new FileLogConfig().withDirectory(path))) {
             fileLog.open();
@@ -35,11 +35,11 @@ public class FileLogTest4 {
                         utlogger.info("Entry is null for key : " + i);
                         continue;
                     }
-                    if (Utils.src32_t(bb) != crc) {
+                    if (Utils.crc32_t(bb) != crc) {
                         utlogger.info("Corrupted entry is detected for entry : " + i);
                     }
 
-                    byte[] s = new byte[bb.limit()];
+                    byte[] s = new byte[bb.limit() - bb.position()];
                     bb.get(s);
                     utlogger.info(new String(s));
 

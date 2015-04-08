@@ -22,9 +22,11 @@ public final class TestUtils {
 
     static final Logger utlogger = LoggerFactory.getLogger("UNIT.TEST");
 
+
     static int total_workers = 4;
     static int work_size_per_worker = 10000;
     static long segment_size = 2 * 1024 * 1024 * 1024L;
+    static final String test_image = "/48060-high-res-ship.jpg";
 
     public static final int BUFFER = 0x2000;
 

@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.trebogeer.maplog.TestUtils.key_template;
 import static com.trebogeer.maplog.TestUtils.segment_size;
+import static com.trebogeer.maplog.TestUtils.test_image;
 import static com.trebogeer.maplog.TestUtils.total_workers;
 import static com.trebogeer.maplog.TestUtils.utlogger;
 import static com.trebogeer.maplog.TestUtils.work_size_per_worker;
@@ -37,7 +38,7 @@ public class FileLogTest3 {
         ExecutorService es = Executors.newFixedThreadPool(total_workers);
 
         String path = System.getProperty("user.home") + File.separator + /*"tmp"*/"nfsshare" + File.separator;
-        InputStream fis = FileLogTest1.class.getResourceAsStream("/image");
+        InputStream fis = FileLogTest1.class.getResourceAsStream(test_image);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try {
             TestUtils.pipe(fis, baos);

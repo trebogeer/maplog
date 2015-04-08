@@ -75,6 +75,16 @@ public class Utils {
         };
     }
 
+    public static byte[] toBytes(int val) {
+        byte[] b = new byte[4];
+        for (int i = 3; i > 0; i--) {
+            b[i] = (byte) (val);
+            val >>>= 8;
+        }
+        b[0] = (byte) (val);
+        return b;
+    }
+
 
     public static long toLong(byte[] data) {
         if (data == null || data.length != 8) return 0x0;
@@ -94,7 +104,7 @@ public class Utils {
     }
 
 
-    public static int src32_t(byte[] bytes) {
+    public static int crc32_t(byte[] bytes) {
         int crc = 0xffffffff;
         for (byte b : bytes) {
             crc = (crc >>> 8) ^ crc3_table[(crc ^ b) & 0xff];
@@ -105,7 +115,7 @@ public class Utils {
 
     }
 
-    public static int src32_t(ByteBuffer bytes) {
+    public static int crc32_t(ByteBuffer bytes) {
         int crc = 0xffffffff;
         bytes.mark();
         while (bytes.hasRemaining()) {
@@ -147,8 +157,8 @@ public class Utils {
     }
 
 
-    public static ExecutorService fixedThreadNamingExecutorService(int threads, String name, int priority){
-       return Executors.newFixedThreadPool(threads, r -> {
+    public static ExecutorService fixedThreadNamingExecutorService(int threads, String name, int priority) {
+        return Executors.newFixedThreadPool(threads, r -> {
             Thread t = new Thread(r);
             // -XX:ThreadPriorityPolicy=42
             t.setPriority(priority);
@@ -157,7 +167,7 @@ public class Utils {
         });
     }
 
-    public static void shutdownExecutor(long timeout, TimeUnit unit, ExecutorService es){
+    public static void shutdownExecutor(long timeout, TimeUnit unit, ExecutorService es) {
         es.shutdown();
         try {
             es.awaitTermination(timeout, unit);

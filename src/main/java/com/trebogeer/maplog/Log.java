@@ -1,5 +1,6 @@
 package com.trebogeer.maplog;
 
+import com.trebogeer.maplog.checksum.Checksum;
 import com.trebogeer.maplog.index.Value;
 
 import java.io.IOException;
@@ -76,6 +77,12 @@ public interface Log<K> extends Serializable {
     Map<K, Value> index();
 
     /**
+     * Returns checksum function for entry integrity check.
+     * @return checksum
+     */
+    Checksum checksum();
+
+    /**
      * Counts entries indexed.
      *
      * @return entry count
@@ -89,7 +96,7 @@ public interface Log<K> extends Serializable {
      * @return The entry at the given index, or {@code null} if the entry doesn't exist.
      * @throws IllegalStateException If the log is not open.
      */
-    ByteBuffer getEntry(byte[] key);
+    ByteBuffer getEntry(byte[] key) throws IOException;
 
 
     /**

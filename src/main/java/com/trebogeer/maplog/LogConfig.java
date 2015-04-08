@@ -1,5 +1,7 @@
 package com.trebogeer.maplog;
 
+import com.trebogeer.maplog.checksum.Checksum;
+import com.trebogeer.maplog.checksum.Checksums;
 import com.trebogeer.maplog.hash.Hash;
 import com.trebogeer.maplog.hash.MurMur3;
 
@@ -26,13 +28,16 @@ public class LogConfig {
     private boolean flushOnWrite = System.getProperty(LOG_FLUSH_ON_WRITE) == null || Boolean.getBoolean(LOG_FLUSH_ON_WRITE);
     private boolean mertics = System.getProperty(LOG_METRICS) == null || Boolean.getBoolean(LOG_METRICS);
     private Supplier<Hash> hashSupplier = MurMur3.murmur3();
+    private Checksum checksum = Checksums.adler32();
 
     public LogConfig(LogConfig other) {
         this.segmentSize = other.segmentSize;
         this.flushOnWrite = other.flushOnWrite;
         this.mertics = other.mertics;
         this.hashSupplier = other.hashSupplier;
+        this.checksum = other.checksum;
     }
+
 
     public LogConfig copy() {
         return new LogConfig(this);
@@ -187,6 +192,19 @@ public class LogConfig {
 
     public LogConfig withMetrics(Supplier<Hash> hashSupplier) {
         setHashSupplier(hashSupplier);
+        return this;
+    }
+
+    public Checksum getChecksum() {
+        return checksum;
+    }
+
+    public void setChecksum(Checksum checksum) {
+        this.checksum = checksum;
+    }
+
+    public LogConfig withChecksum(Checksum c) {
+        setChecksum(c);
         return this;
     }
 }

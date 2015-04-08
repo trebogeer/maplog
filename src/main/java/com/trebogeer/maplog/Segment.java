@@ -1,5 +1,6 @@
 package com.trebogeer.maplog;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 
@@ -31,7 +32,7 @@ public interface Segment extends Loggable, Serializable {
      */
     long timestamp();
 
-    ByteBuffer getEntry(long pos, int offset);
+    ByteBuffer getEntry(long pos, int offset) throws IOException;
 
     /**
      * Compacts segment

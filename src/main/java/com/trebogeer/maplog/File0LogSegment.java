@@ -13,14 +13,17 @@ import java.nio.channels.FileLock;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static com.trebogeer.maplog.Constants.INDEX_ENTRY_SIZE;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.nio.file.StandardCopyOption.COPY_ATTRIBUTES;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
@@ -34,11 +37,12 @@ import static java.nio.file.StandardOpenOption.WRITE;
  *         Date: 3/23/15
  *         Time: 2:32 PM
  */
+
+//TODO expose checksum as a config parameter
 public class File0LogSegment extends AbstractSegment {
 
     protected static final Logger logger = LoggerFactory.getLogger("JLOG.F.SEGMENT");
 
-    private static final int INDEX_ENTRY_SIZE = 29;
 
     protected final FileLog log;
     private final File logFile;
@@ -52,14 +56,32 @@ public class File0LogSegment extends AbstractSegment {
     protected FileChannel metaFileChannel;
     protected boolean isEmpty = true;
     protected ReentrantLock lock = new ReentrantLock();
+    protected ReentrantLock readRepairlock = new ReentrantLock();
+    protected Condition readRepairSuccess = readRepairlock.newCondition();
     protected long lastCatchUpPosition = 0;
     protected String fullName;
     protected AtomicLong maxSeenPosition = new AtomicLong(0);
+
     protected final ThreadLocal<ByteBuffer> indexBuffer = new ThreadLocal<ByteBuffer>() {
 
         @Override
         protected ByteBuffer initialValue() {
             return ByteBuffer.allocate(INDEX_ENTRY_SIZE);
+        }
+
+        @Override
+        public ByteBuffer get() {
+            ByteBuffer bb = super.get();
+            bb.rewind();
+            return bb;
+        }
+    };
+
+    protected final ThreadLocal<ByteBuffer> crc_and_size = new ThreadLocal<ByteBuffer>() {
+
+        @Override
+        protected ByteBuffer initialValue() {
+            return ByteBuffer.allocate(4 + 8);
         }
 
         @Override
@@ -130,6 +152,7 @@ public class File0LogSegment extends AbstractSegment {
         indexReadFileChannel = FileChannel.open(this.indexFile.toPath(), READ);
 
         long indexFileSize = indexReadFileChannel.size();
+        // TODO read everything into buffer then loop?
         if (indexFileSize != 0) {
             long start = System.currentTimeMillis();
             ByteBuffer b = indexBuffer.get();
@@ -174,12 +197,20 @@ public class File0LogSegment extends AbstractSegment {
     // TODO 1. see if it would be easy/possible to push other pending changes under the same file lock.
     // TODO 2. see if it would make sense to try to lock only pos + data size region and let others do their thing.
     // TODO or maybe just expose bulk api or all of them
+    // TODO try lock with timeout - sort of back pressure if abused
     public byte[] appendEntry(ByteBuffer entry, byte[] index, byte flags) {
         assertIsOpen();
         try {
             entry.rewind();
-            lock.lock();
-            int size = logWriteFileChannel.write(entry);
+
+            int checksum = log.checksum().checksum(entry);
+            long s = entry.limit() - entry.position();
+            lock.lockInterruptibly();
+            ByteBuffer crcAndSize = crc_and_size.get();
+            crcAndSize.putLong(s).putInt(checksum);
+            crcAndSize.rewind();
+            // TODO casting for now, will need better handling
+            int size = (int) logWriteFileChannel.write(new ByteBuffer[]{crcAndSize, entry});
             long pos = logWriteFileChannel.position();
             maxSeenPosition.set(pos);
             storePosition(index, pos - size, size, flags);
@@ -187,6 +218,8 @@ public class File0LogSegment extends AbstractSegment {
             flush();
         } catch (IOException e) {
             throw new LogException("Error appending entry seg: " + fullName, e);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
         } finally {
             lock.unlock();
         }
@@ -239,17 +272,78 @@ public class File0LogSegment extends AbstractSegment {
     }
 
     @Override
-    public ByteBuffer getEntry(long position, int offset) {
+    public ByteBuffer getEntry(long position, int offset) throws IOException {
         assertIsOpen();
         try {
             ByteBuffer buffer = ByteBuffer.allocate(offset);
             logReadFileChannel.read(buffer, position);
-            buffer.flip();
+            buffer.rewind();
+            int chs = buffer.getInt(9);
+            int chs_t = log.checksum().checksum(buffer);
+            if (chs != chs_t) {
+                if (!repair()) {
+                    try {
+                        readRepairSuccess.await(5, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+                buffer.rewind();
+                logReadFileChannel.read(buffer, position);
+                chs = buffer.getInt(9);
+                chs_t = log.checksum().checksum(buffer);
+                if (chs != chs_t) {
+                    logger.error("Corrupted entry - seg: {}, position - {}, offset - {}",
+                            fullName, position, offset);
+                    return null;
+                }
+            }
+            // buffer.rewind();
             return buffer;
         } catch (IOException e) {
-            throw new LogException("Error retrieving entry seg: "
+            throw new IOException("Error retrieving entry seg: "
                     + fullName + "/" + position + "/" + offset, e);
         }
+    }
+
+    protected boolean repair() {
+        try {
+
+            boolean locked = readRepairlock.tryLock();
+            if (locked) {
+                long start = System.currentTimeMillis();
+                long size = indexReadFileChannel.size();
+
+                if (size > 0) {
+                    //logger.info("Repairing segment {} index.", fullName);
+                    final ByteBuffer b = ByteBuffer.allocate((int) size);
+                    indexReadFileChannel.read(b);
+                    while (b.hasRemaining()) {
+                        try {
+                            log().index().merge(b.getLong(), new Value(b.getLong(), b.getInt(), id(), b.get()),
+                                    (v0, v1) -> v0.getSegmentId() < v1.getSegmentId()
+                                            || (v0.getSegmentId() == v0.getSegmentId()
+                                            && v0.getPosition() < v1.getPosition())
+                                            ? v1 : v0);
+                            b.getLong();
+                        } catch (BufferUnderflowException bue) {
+                            // TODO handle not full entry
+                        }
+                    }
+
+                    logger.info("Repaired segment {} index in {} millis.",
+                            fullName, (System.currentTimeMillis() - start));
+                }
+                readRepairSuccess.signalAll();
+                return true;
+            }
+
+        } catch (IOException e) {
+            logger.error(String.format("Read repair of segment %s failed", fullName), e);
+        } finally {
+            readRepairlock.unlock();
+        }
+        return false;
     }
 
 
@@ -298,6 +392,7 @@ public class File0LogSegment extends AbstractSegment {
      * Compacts segment.
      */
     @Override
+    // TODO rework and use same write channel
     public void compact() {
 
         if (this.id() != log().segment().id()) {
@@ -310,6 +405,7 @@ public class File0LogSegment extends AbstractSegment {
 
             try (FileLock fl = metaFileChannel.tryLock()) {
                 if (fl != null && log().lastSegment().id() > id()) {
+                    lock.lock();
                     long start = System.currentTimeMillis();
                     FileChannel index = FileChannel.open(indexFile.toPath(), READ);
                     FileChannel dataLog = FileChannel.open(logFile.toPath(), READ);
@@ -365,7 +461,7 @@ public class File0LogSegment extends AbstractSegment {
                             return;
                         }
                         try {
-                            Files.move(indexPath, indexFile.toPath(), ATOMIC_MOVE, REPLACE_EXISTING, COPY_ATTRIBUTES);
+                            Files.move(indexPath, indexFile.toPath(), ATOMIC_MOVE, REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
                         } catch (IOException e) {
                             logger.error("Failed to move/rename compacted " + indexPath + " to " + indexFile.toPath());
                         }
@@ -374,6 +470,10 @@ public class File0LogSegment extends AbstractSegment {
                 }
             } catch (IOException ioe) {
                 logger.error(String.format("Failed to compact segment %s due to an error.", fullName), ioe);
+            } finally {
+                if (lock.isHeldByCurrentThread()) {
+                    lock.unlock();
+                }
             }
 
         }
@@ -382,6 +482,7 @@ public class File0LogSegment extends AbstractSegment {
     @Override
     // TODO avoid reading own changes. Need to optimize.
     // TODO rework lastCatchUpPosition marker.
+    // TODO need to reuse existing channel
     public void catchUp() {
         long start = System.currentTimeMillis();
         try (FileChannel index = FileChannel.open(indexFile.toPath(), READ)) {
@@ -432,5 +533,6 @@ public class File0LogSegment extends AbstractSegment {
         logger.info("Catched up on changes in segment {}. Elapsed time {} millis.",
                 fullName, (System.currentTimeMillis() - start));
     }
+
 }
 

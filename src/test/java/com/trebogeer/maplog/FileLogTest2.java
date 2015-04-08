@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 import static com.trebogeer.maplog.TestUtils.key_template;
+import static com.trebogeer.maplog.TestUtils.test_image;
 import static com.trebogeer.maplog.TestUtils.total_workers;
 import static com.trebogeer.maplog.TestUtils.utlogger;
 import static com.trebogeer.maplog.TestUtils.work_size_per_worker;
@@ -21,7 +22,7 @@ public class FileLogTest2 {
     public static void main(String... args) {
 
         String path = System.getProperty("user.home") + File.separator + "nfsshare"/*tmp*/ + File.separator;
-        InputStream fis = FileLogTest1.class.getResourceAsStream("/image");
+        InputStream fis = FileLogTest1.class.getResourceAsStream(test_image);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try {
             TestUtils.pipe(fis, baos);
@@ -32,7 +33,7 @@ public class FileLogTest2 {
 
         byte[] image = baos.toByteArray();
 
-        int crc = Utils.src32_t(image);
+        int crc = Utils.crc32_t(image);
         try (FileLog fileLog = new FileLog("images1", new FileLogConfig().withDirectory(path))) {
             fileLog.open();
             for (int ii = 0; ii < 100; ii++) {
@@ -44,7 +45,7 @@ public class FileLogTest2 {
                         utlogger.info("Entry is null for key : " + key);
                         continue;
                     }
-                    if (Utils.src32_t(bb) != crc) {
+                    if (Utils.crc32_t(bb) != crc) {
                         utlogger.info("Corrupted entry is detected for entry : " + key);
                     }
                 }

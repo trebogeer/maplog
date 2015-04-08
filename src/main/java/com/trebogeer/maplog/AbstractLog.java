@@ -3,6 +3,7 @@ package com.trebogeer.maplog;
 import com.codahale.metrics.JmxReporter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Slf4jReporter;
+import com.trebogeer.maplog.checksum.Checksum;
 import com.trebogeer.maplog.hash.Hash;
 import com.trebogeer.maplog.index.Value;
 import org.slf4j.Logger;
@@ -16,7 +17,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
  */
 
 // TODO take a look at Zip File System Provider
+// TODO add better check of input of appendEntry/appendEntries
 public abstract class AbstractLog implements Loggable, Log<Long> {
 
     private static final Logger logger = LoggerFactory.getLogger("JLOG.F");
@@ -47,7 +48,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     private static com.codahale.metrics.Timer reads = REGISTRY.timer("jlog.reads");
 
     private LogConfig config;
-   // protected final TreeMap<Short, Segment> segments = new TreeMap<>();
+    // protected final TreeMap<Short, Segment> segments = new TreeMap<>();
     protected final ConcurrentSkipListMap<Short, Segment> segments = new ConcurrentSkipListMap<>();
     protected final Map<Long, Value> index = new ConcurrentHashMap<>();
     protected Segment currentSegment;
@@ -55,10 +56,12 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     private long lastFlush;
     protected String name;
     protected final Hash hash;
+    protected final Checksum checksum;
 
     protected AbstractLog(LogConfig config) {
         this.config = config.copy();
         this.hash = config.getHashSupplier().get();
+        this.checksum = config.getChecksum();
     }
 
     @Override
@@ -66,6 +69,10 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
         return config;
     }
 
+    @Override
+    public Checksum checksum() {
+        return this.checksum;
+    }
 
     @Override
     public Map<Long, Value> index() {
@@ -227,6 +234,11 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     public byte[] appendEntry(ByteBuffer entry, byte[] index, byte flags) throws IOException {
         long s = System.nanoTime();
         assertIsOpen();
+        if (entry.limit() - entry.position() > (Integer.MAX_VALUE - Constants.CRC_AND_SIZE)) {
+            throw new IllegalArgumentException(String.format("Entry size is too over allowed maximum value: " +
+                            "size - %d bytes, max size - %d bytes", entry.limit() - entry.position(),
+                    Integer.MAX_VALUE - Constants.CRC_AND_SIZE));
+        }
         rollOver();
         byte[] b = currentSegment.appendEntry(entry, index, flags);
         writes.update(System.nanoTime() - s, TimeUnit.NANOSECONDS);
@@ -237,6 +249,14 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     public List<byte[]> appendEntries(Map<byte[], Entry> entries) throws IOException {
         long s = System.nanoTime();
         assertIsOpen();
+        for (Map.Entry<byte[], Entry> entry : entries.entrySet()) {
+            ByteBuffer e = entry.getValue().getEntry();
+            if (e.limit() - e.position() > (Integer.MAX_VALUE - Constants.CRC_AND_SIZE)) {
+                throw new IllegalArgumentException(String.format("Entry size is too over allowed maximum value: " +
+                                "size - %d bytes, max size - %d bytes", e.limit() - e.position(),
+                        Integer.MAX_VALUE - Constants.CRC_AND_SIZE));
+            }
+        }
         rollOver();
         List<byte[]> b = currentSegment.appendEntries(entries);
         writes.update(System.nanoTime() - s, TimeUnit.NANOSECONDS);
@@ -248,7 +268,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
      * the correct segment.
      */
     @Override
-    public ByteBuffer getEntry(byte[] index) {
+    public ByteBuffer getEntry(byte[] index) throws IOException {
         assertIsOpen();
         ByteBuffer result = null;
         long start = System.nanoTime();

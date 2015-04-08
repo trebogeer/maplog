@@ -26,6 +26,12 @@ public class LockingLogSegment extends File0LogSegment {
     @Override
     public byte[] appendEntry(ByteBuffer entry, byte[] index, byte flags) {
         assertIsOpen();
+        entry.rewind();
+        int checksum = log().checksum().checksum(entry);
+        long s = entry.limit() - entry.position();
+        ByteBuffer chsAndSize = crc_and_size.get();
+        chsAndSize.putLong(s).putInt(checksum);
+        chsAndSize.rewind();
         lock.lock();
         // TODO see if locking a region helps anyhow
         // TODO see if locking a region of a specific entry possible and helps
@@ -35,7 +41,7 @@ public class LockingLogSegment extends File0LogSegment {
             int size;
             long p;
 
-            size = logWriteFileChannel.write(entry);
+            size = (int) logWriteFileChannel.write(new ByteBuffer[]{chsAndSize, entry});
             p = logWriteFileChannel.position();
             maxSeenPosition.set(p);
             storePosition(index, p - size, size, flags);
@@ -75,8 +81,15 @@ public class LockingLogSegment extends File0LogSegment {
                 if (entry != null && (value = entry.getValue()) != null && entry.getKey() != null) {
                     ByteBuffer buffer = value.getEntry();
                     buffer.rewind();
+
+                    int checksum = log().checksum().checksum(buffer);
+                    long s = buffer.limit() - buffer.position();
+                    ByteBuffer crcAndSize = crc_and_size.get();
+                    crcAndSize.putLong(s).putInt(checksum);
+                    crcAndSize.rewind();
+
                     int size;
-                    size = logWriteFileChannel.write(buffer);
+                    size = (int) logWriteFileChannel.write(new ByteBuffer[]{crcAndSize, buffer});
                     position = position + size;
                     maxSeenPosition.set(position);
                     storePosition(entry.getKey(), position - size, size, value.getMeta());
