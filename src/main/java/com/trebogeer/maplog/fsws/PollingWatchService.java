@@ -31,6 +31,8 @@ import java.util.concurrent.TimeUnit;
  *         Date: 3/26/15
  *         Time: 9:47 AM
  */
+
+// TODO modify to only poll changes for current segment or newly created.
 public class PollingWatchService
         extends CustomAbstractWatchService {
 
