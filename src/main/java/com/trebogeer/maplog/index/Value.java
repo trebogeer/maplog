@@ -1,6 +1,7 @@
 package com.trebogeer.maplog.index;
 
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 
 /**
  * @author dimav
@@ -61,6 +62,19 @@ public class Value implements Serializable {
         return result;
     }
 
+    @Override
+    public String toString() {
+        return "Value{" +
+                "position=" + position +
+                ", offset=" + offset +
+                ", flags=" + flags +
+                ", segmentId=" + segmentId +
+                '}';
+    }
+
+    public void toByteBuffer(ByteBuffer bb) {
+        bb.putLong(position).putInt(offset).put(flags);
+    }
 
 }
 

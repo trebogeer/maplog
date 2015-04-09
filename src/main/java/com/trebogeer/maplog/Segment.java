@@ -44,5 +44,11 @@ public interface Segment extends Loggable, Serializable {
      */
     void catchUp();
 
+    /**
+     * Close segment write resources
+     * @throws IOException
+     */
+    void closeWrite() throws IOException;
+
 
 }

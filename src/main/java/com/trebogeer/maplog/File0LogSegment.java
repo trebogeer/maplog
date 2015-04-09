@@ -10,10 +10,6 @@ import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -24,13 +20,11 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static com.trebogeer.maplog.Constants.INDEX_ENTRY_SIZE;
-import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
-import static java.nio.file.StandardCopyOption.COPY_ATTRIBUTES;
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.nio.file.StandardOpenOption.APPEND;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static java.util.stream.Collectors.toCollection;
 
 /**
  * @author dimav
@@ -140,7 +134,6 @@ public class File0LogSegment extends AbstractSegment {
             }
         }
         // write channel in append only mode
-
         logWriteFileChannel = FileChannel.open(this.logFile.toPath(), CREATE, APPEND);
         logReadFileChannel = FileChannel.open(this.logFile.toPath(), READ);
 
@@ -160,14 +153,17 @@ public class File0LogSegment extends AbstractSegment {
             HashMap<Long, Value> localIndex = new HashMap<>();
             while (indexReadFileChannel.read(b) != -1) {
                 b.flip();
-                localIndex.put(b.getLong(), new Value(b.getLong(), b.getInt(), id(), b.get()));
+                try {
+                    localIndex.put(b.getLong(), new Value(b.getLong(), b.getInt(), id(), b.get()));
+                } catch (BufferUnderflowException e) {
+                    logger.warn("Partial index entry found at {}.", fullName);
+                }
                 b.rewind();
             }
             log().index().putAll(localIndex);
             logger.info("Loaded segment {} index in memory. Elapsed time millis : {}, total number of segment entries: {}",
                     fullName, System.currentTimeMillis() - start, localIndex.size());
         }
-        indexReadFileChannel.position(indexFileSize);
         maxSeenPosition.set(dataLogSize);
         if (indexFileSize > 0) {
             isEmpty = false;
@@ -238,13 +234,10 @@ public class File0LogSegment extends AbstractSegment {
     @Override
     public List<byte[]> appendEntries(Map<byte[], Entry> entries) throws IOException {
         if (entries == null || entries.isEmpty()) return null;
-        List<byte[]> keys = new LinkedList<>();
-        for (Map.Entry<byte[], Entry> entry : entries.entrySet()) {
-            if (entry != null && entry.getValue() != null) {
-                keys.add(appendEntry(entry.getValue().getEntry(), entry.getKey(), entry.getValue().getMeta()));
-            }
-        }
-        return keys;
+        return entries.entrySet().stream()
+                .filter(entry -> (entry != null) && (entry.getValue() != null))
+                .map(entry -> appendEntry(entry.getValue().getEntry(), entry.getKey(), entry.getValue().getMeta()))
+                .collect(toCollection(LinkedList::new));
     }
 
     /**
@@ -327,7 +320,7 @@ public class File0LogSegment extends AbstractSegment {
                                             ? v1 : v0);
                             b.getLong();
                         } catch (BufferUnderflowException bue) {
-                            // TODO handle not full entry
+                            logger.warn("Partial index entry found at {}.", fullName);
                         }
                     }
 
@@ -359,8 +352,8 @@ public class File0LogSegment extends AbstractSegment {
 
     @Override
     public synchronized void close() throws IOException {
+        if (isClosed()) return;
         logger.info("Closing segment [{}]", id());
-        assertIsOpen();
         logWriteFileChannel.close();
         logWriteFileChannel = null;
         logReadFileChannel.close();
@@ -373,6 +366,16 @@ public class File0LogSegment extends AbstractSegment {
 
         metaFileChannel.close();
         metaFileChannel = null;
+    }
+
+    @Override
+    public synchronized void closeWrite() throws IOException {
+        if (logWriteFileChannel != null) {
+            logWriteFileChannel.close();
+            logWriteFileChannel = null;
+            indexWriteFileChannel.close();
+            indexWriteFileChannel = null;
+        }
     }
 
     @Override
@@ -392,79 +395,58 @@ public class File0LogSegment extends AbstractSegment {
      * Compacts segment.
      */
     @Override
-    // TODO rework and use same write channel
+    // TODO rework and use same write channel.
+    // TODO may be have a changes threshold to optimize at.
+    // TODO try compacting on low space left too.
     public void compact() {
 
         if (this.id() != log().segment().id()) {
-            // TODO may be have a changes threshold to optimize at. No need to
-            FileChannel newIndex = null;
-            FileChannel newLog = null;
-
-            Path indexPath = Paths.get(indexFile.getAbsolutePath() + ".compact");
-            Path dataPath = Paths.get(logFile.getAbsolutePath() + ".compact");
-
             try (FileLock fl = metaFileChannel.tryLock()) {
                 if (fl != null && log().lastSegment().id() > id()) {
                     lock.lock();
                     long start = System.currentTimeMillis();
-                    FileChannel index = FileChannel.open(indexFile.toPath(), READ);
-                    FileChannel dataLog = FileChannel.open(logFile.toPath(), READ);
+                    FileChannel index = indexReadFileChannel;
+                    FileChannel dataLog = logReadFileChannel;
+                    long oldSize = dataLog.size();
+                    try (FileChannel indexWriteFileChannel = FileChannel.open(indexFile.toPath(), WRITE);
+                         FileChannel logWriteFileChannel = FileChannel.open(logFile.toPath(), WRITE)) {
+                        ByteBuffer ibb = indexBuffer.get();
+                        ByteBuffer bb = ByteBuffer.allocate((int) index.size());
+                        long bytesRead = index.read(bb);
+                        long pos = 0;
+                        if (bytesRead > 0) {
+                            while (bb.hasRemaining()) {
+                                try {
+                                    Long key = bb.getLong();
+                                    Value ov = new Value(bb.getLong(), bb.getInt(), id(), bb.get());
+                                    long ts = bb.getLong();
+                                    boolean expired = System.currentTimeMillis() - bb.getLong() >= TimeUnit.DAYS.toMillis(10);
+                                    Value cv = log().index().get(key);
+                                    if (cv == null || !(cv.getSegmentId() > ov.getSegmentId()
+                                            || ((cv.getSegmentId() == ov.getSegmentId())
+                                            && cv.getPosition() > ov.getPosition()))) {
+                                        ibb.rewind();
+                                        ibb.putLong(key);
+                                        ibb.putLong(pos);
+                                        ibb.putInt(ov.getOffset());
+                                        ibb.put(ov.getFlags());
+                                        ibb.putLong(ts);
+                                        ibb.rewind();
+                                        logWriteFileChannel.transferFrom(dataLog, ov.getPosition(), ov.getOffset());
+                                        indexWriteFileChannel.write(ibb);
+                                        pos += ov.getOffset();
 
-                    ByteBuffer bb = indexBuffer.get();
-                    while (index.read(bb) != -1) {
-                        bb.rewind();
-                        Long key = bb.getLong();
-                        bb.mark();
-                        Value ov = new Value(bb.getLong(), bb.getInt(), id(), bb.get());
-                        boolean expired = System.currentTimeMillis() - bb.getLong() >= TimeUnit.DAYS.toMillis(10);
-                        Value cv = log().index().get(key);
-
-                        if (cv != null) {
-                            short curSegId = cv.getSegmentId();
-                            short vSegId = ov.getSegmentId();
-                            if (curSegId < vSegId || ((curSegId == vSegId) && cv.getPosition() < ov.getPosition())) {
-                                if (newIndex == null) {
-                                    Files.deleteIfExists(indexPath);
-                                    Files.deleteIfExists(dataPath);
-
-                                    newIndex = FileChannel.open(indexPath, CREATE, WRITE);
-                                    newLog = FileChannel.open(dataPath, CREATE, WRITE);
+                                    } else if (ov.equals(cv) && expired) {
+                                        // TODO compact expired
+                                    }
+                                } catch (BufferUnderflowException bue) {
+                                    logger.warn("Partial index entry found at {}.", fullName);
                                 }
-
-                                dataLog.transferTo(ov.getPosition(), ov.getOffset(), newLog);
-                                long pos = dataLog.position() - ov.getOffset();
-                                bb.reset();
-                                bb.putLong(pos);
-                                bb.rewind();
-                                newIndex.write(bb);
-                            } else if (cv.equals(ov) && expired) {
-                                // TODO repoint to compacted entry version
                             }
-                        } else {
-                            // TODO need to figure out if it should get deleted during compaction.
+                            logWriteFileChannel.truncate(pos);
+                            flush();
                         }
-                        bb.rewind();
-                    }
-                    if (newLog != null) {
-
-                        long oldSize = dataLog.size();
-                        long newSize = newLog.size();
-                        logger.info("Compacted segment {}:  {} -> {} in {} millis.",
-                                fullName, oldSize, newSize, (System.currentTimeMillis() - start));
-                    }
-
-                    if (newIndex != null && newLog != null) {
-                        try {
-                            Files.move(indexPath, indexFile.toPath(), ATOMIC_MOVE, REPLACE_EXISTING, COPY_ATTRIBUTES);
-                        } catch (IOException e) {
-                            logger.error("Failed to move/rename compacted " + indexPath + " to " + indexFile.toPath());
-                            return;
-                        }
-                        try {
-                            Files.move(indexPath, indexFile.toPath(), ATOMIC_MOVE, REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
-                        } catch (IOException e) {
-                            logger.error("Failed to move/rename compacted " + indexPath + " to " + indexFile.toPath());
-                        }
+                        logger.info("Compacted segment {} in {} millis. {} -> {}", fullName, System.currentTimeMillis() - start, oldSize, pos);
                     }
 
                 }

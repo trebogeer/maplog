@@ -311,6 +311,8 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
                     currentSegment.flush();
                 }
 
+                currentSegment.closeWrite();
+
                 short newSegmentId = ++nextSegmentId;
 
                 currentSegment = createSegment(newSegmentId);
