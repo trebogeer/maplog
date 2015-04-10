@@ -269,12 +269,14 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
      */
     @Override
     public ByteBuffer getEntry(byte[] index) throws IOException {
+        if (index == null || index.length == 0) return null;
         assertIsOpen();
         ByteBuffer result = null;
         long start = System.nanoTime();
-        Value v = index().get(hash.hash(index));
+        long key = hash.hash(index);
+        Value v = index().get(key);
         if (v != null) {
-            result = segment(v.getSegmentId()).getEntry(v.getPosition(), v.getOffset());
+            result = segment(v.getSegmentId()).getEntry(key, v);
         }
         reads.update(System.nanoTime() - start, TimeUnit.NANOSECONDS);
         return result;

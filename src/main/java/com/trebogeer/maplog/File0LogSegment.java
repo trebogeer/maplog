@@ -32,7 +32,6 @@ import static java.util.stream.Collectors.toCollection;
  *         Time: 2:32 PM
  */
 
-//TODO expose checksum as a config parameter
 public class File0LogSegment extends AbstractSegment {
 
     protected static final Logger logger = LoggerFactory.getLogger("JLOG.F.SEGMENT");
@@ -50,8 +49,8 @@ public class File0LogSegment extends AbstractSegment {
     protected FileChannel metaFileChannel;
     protected boolean isEmpty = true;
     protected ReentrantLock lock = new ReentrantLock();
-    protected ReentrantLock readRepairlock = new ReentrantLock();
-    protected Condition readRepairSuccess = readRepairlock.newCondition();
+    protected ReentrantLock readRepairLock = new ReentrantLock();
+    protected Condition readRepairSuccess = readRepairLock.newCondition();
     protected long lastCatchUpPosition = 0;
     protected String fullName;
     protected AtomicLong maxSeenPosition = new AtomicLong(0);
@@ -265,27 +264,40 @@ public class File0LogSegment extends AbstractSegment {
     }
 
     @Override
-    public ByteBuffer getEntry(long position, int offset) throws IOException {
+    public ByteBuffer getEntry(long key, Value v) throws IOException {
+        if (v == null) return null;
+        int offset = -1;
+        long position = -1;
         assertIsOpen();
         try {
+            offset = v.getOffset();
+            position = v.getPosition();
             ByteBuffer buffer = ByteBuffer.allocate(offset);
             logReadFileChannel.read(buffer, position);
             buffer.rewind();
+            long s = buffer.getLong();
             int chs = buffer.getInt(9);
-            int chs_t = log.checksum().checksum(buffer);
-            if (chs != chs_t) {
+            if (s != offset || chs != log.checksum().checksum(buffer)) {
                 if (!repair()) {
                     try {
+                        // TODO make it configurable
                         readRepairSuccess.await(5, TimeUnit.SECONDS);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }
                 }
-                buffer.rewind();
+
+                Value vv = log().index().get(key);
+                if (vv == null) return null;
+                if (offset != vv.getOffset()) {
+                    buffer = ByteBuffer.allocate(offset = vv.getOffset());
+                } else {
+                    buffer.rewind();
+                }
                 logReadFileChannel.read(buffer, position);
+                s = buffer.getLong();
                 chs = buffer.getInt(9);
-                chs_t = log.checksum().checksum(buffer);
-                if (chs != chs_t) {
+                if (s != offset || chs != log.checksum().checksum(buffer)) {
                     logger.error("Corrupted entry - seg: {}, position - {}, offset - {}",
                             fullName, position, offset);
                     return null;
@@ -302,7 +314,7 @@ public class File0LogSegment extends AbstractSegment {
     protected boolean repair() {
         try {
 
-            boolean locked = readRepairlock.tryLock();
+            boolean locked = readRepairLock.tryLock();
             if (locked) {
                 long start = System.currentTimeMillis();
                 long size = indexReadFileChannel.size();
@@ -334,7 +346,7 @@ public class File0LogSegment extends AbstractSegment {
         } catch (IOException e) {
             logger.error(String.format("Read repair of segment %s failed", fullName), e);
         } finally {
-            readRepairlock.unlock();
+            readRepairLock.unlock();
         }
         return false;
     }

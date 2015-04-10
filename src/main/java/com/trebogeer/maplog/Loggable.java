@@ -4,6 +4,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -49,10 +50,10 @@ public interface Loggable extends Closeable, Serializable {
      * @param key       The entry key.
      * @param metaFlags One byte of app level meta flags.
      * @return The appended entry index.
-     * @throws IllegalStateException If the log is not open.
+     * @throws IllegalStateException    If the log is not open.
      * @throws IllegalArgumentException If entry is invalid.
-     * @throws NullPointerException  If the entry is null.
-     * @throws java.io.IOException   If a new segment cannot be opened
+     * @throws NullPointerException     If the entry is null.
+     * @throws java.io.IOException      If a new segment cannot be opened
      */
     byte[] appendEntry(ByteBuffer entry, byte[] key, byte metaFlags) throws IOException;
 
@@ -62,12 +63,17 @@ public interface Loggable extends Closeable, Serializable {
      *
      * @param entries The entries to append.
      * @return The appended entry index.
-     * @throws IllegalStateException If the log is not open.
+     * @throws IllegalStateException    If the log is not open.
      * @throws IllegalArgumentException If at least one of teh entries is invalid.
-     * @throws NullPointerException  If the entry is null.
-     * @throws java.io.IOException   If a new segment cannot be opened
+     * @throws NullPointerException     If the entry is null.
+     * @throws java.io.IOException      If a new segment cannot be opened
      */
     List<byte[]> appendEntries(Map<byte[], Entry> entries) throws IOException;
+//
+//
+//    byte[] deleteEntry(byte[] key) throws IOException;
+//
+//    List<byte[]> deleteEntries(Collection<byte[]> keys) throws IOException;
 
     /**
      * Flushes the log to disk.
