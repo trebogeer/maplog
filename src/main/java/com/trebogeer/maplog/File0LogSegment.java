@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static com.trebogeer.maplog.Constants.CRC_AND_SIZE;
 import static com.trebogeer.maplog.Constants.INDEX_ENTRY_SIZE;
 import static java.nio.file.StandardOpenOption.APPEND;
 import static java.nio.file.StandardOpenOption.CREATE;
@@ -36,17 +37,13 @@ public class File0LogSegment extends AbstractSegment {
 
     protected static final Logger logger = LoggerFactory.getLogger("JLOG.F.SEGMENT");
 
-
     protected final FileLog log;
     private final File logFile;
     private final File indexFile;
-    private final File metadataFile;
-    private long timestamp;
     protected FileChannel logReadFileChannel;
     protected FileChannel logWriteFileChannel;
     protected FileChannel indexReadFileChannel;
     protected FileChannel indexWriteFileChannel;
-    protected FileChannel metaFileChannel;
     protected boolean isEmpty = true;
     protected ReentrantLock lock = new ReentrantLock();
     protected ReentrantLock readRepairLock = new ReentrantLock();
@@ -74,7 +71,7 @@ public class File0LogSegment extends AbstractSegment {
 
         @Override
         protected ByteBuffer initialValue() {
-            return ByteBuffer.allocate(4 + 8);
+            return ByteBuffer.allocate(CRC_AND_SIZE);
         }
 
         @Override
@@ -90,7 +87,6 @@ public class File0LogSegment extends AbstractSegment {
         this.log = log;
         this.logFile = new File(log.base.getParentFile(), String.format("%s-%d.log", log.base.getName(), id));
         this.indexFile = new File(log.base.getParentFile(), String.format("%s-%d.index", log.base.getName(), id));
-        this.metadataFile = new File(log.base.getParentFile(), String.format("%s-%d.metadata", log.base.getName(), id));
         this.fullName = log().name() + "/" + this.id;
     }
 
@@ -100,45 +96,15 @@ public class File0LogSegment extends AbstractSegment {
     }
 
     @Override
-    public long timestamp() {
-        assertIsOpen();
-        return timestamp;
-    }
-
-    @Override
-    public void open() throws IOException {
-        assertIsNotOpen();
+    public synchronized void open() throws IOException {
+        if (isOpen()) return;
         // TODO rethink to minimize IO
-        metaFileChannel = FileChannel.open(this.metadataFile.toPath(), CREATE, READ, WRITE);
-        FileLock mfl = null;
-        try {
-            ByteBuffer meta = ByteBuffer.allocate(10);
-            if (metaFileChannel.size() == 0 && (mfl = metaFileChannel.tryLock(0, 16, false)) != null) {
-                timestamp = System.nanoTime();
-                meta.putShort(super.id);
-                meta.putLong(timestamp);
-                metaFileChannel.write(meta);
-            } else {
-                // TODO need to lock here
-                metaFileChannel.read(meta);
-                short metaFileIndex = meta.getShort();
-                if (metaFileIndex != super.id) {
-                    throw new LogException("Segment metadata out of sync " + fullName);
-                }
-                timestamp = meta.getLong();
-            }
-        } finally {
-            if (mfl != null) {
-                mfl.close();
-            }
-        }
         // write channel in append only mode
         logWriteFileChannel = FileChannel.open(this.logFile.toPath(), CREATE, APPEND);
         logReadFileChannel = FileChannel.open(this.logFile.toPath(), READ);
 
         long dataLogSize;
         logWriteFileChannel.position((dataLogSize = logWriteFileChannel.size()));
-        //logReadFileChannel.position(logReadFileChannel.size());
 
         indexWriteFileChannel = FileChannel.open(this.indexFile.toPath(), CREATE, APPEND);
         indexReadFileChannel = FileChannel.open(this.indexFile.toPath(), READ);
@@ -177,8 +143,7 @@ public class File0LogSegment extends AbstractSegment {
 
     @Override
     public boolean isOpen() {
-        return logWriteFileChannel != null && indexWriteFileChannel != null
-                && logReadFileChannel != null && indexReadFileChannel != null;
+        return logReadFileChannel != null && indexReadFileChannel != null;
     }
 
     @Override
@@ -200,10 +165,10 @@ public class File0LogSegment extends AbstractSegment {
 
             int checksum = log.checksum().checksum(entry);
             long s = entry.limit() - entry.position();
-            lock.lockInterruptibly();
             ByteBuffer crcAndSize = crc_and_size.get();
             crcAndSize.putLong(s).putInt(checksum);
             crcAndSize.rewind();
+            lock.lockInterruptibly();
             // TODO casting for now, will need better handling
             int size = (int) logWriteFileChannel.write(new ByteBuffer[]{crcAndSize, entry});
             long pos = logWriteFileChannel.position();
@@ -275,8 +240,8 @@ public class File0LogSegment extends AbstractSegment {
             ByteBuffer buffer = ByteBuffer.allocate(offset);
             logReadFileChannel.read(buffer, position);
             buffer.rewind();
-            long s = buffer.getLong();
-            int chs = buffer.getInt(9);
+            long s = buffer.getLong() + CRC_AND_SIZE;
+            int chs = buffer.getInt();
             if (s != offset || chs != log.checksum().checksum(buffer)) {
                 if (!repair()) {
                     try {
@@ -294,9 +259,9 @@ public class File0LogSegment extends AbstractSegment {
                 } else {
                     buffer.rewind();
                 }
-                logReadFileChannel.read(buffer, position);
-                s = buffer.getLong();
-                chs = buffer.getInt(9);
+                logReadFileChannel.read(buffer, vv.getPosition());
+                s = buffer.getLong() + CRC_AND_SIZE;
+                chs = buffer.getInt();
                 if (s != offset || chs != log.checksum().checksum(buffer)) {
                     logger.error("Corrupted entry - seg: {}, position - {}, offset - {}",
                             fullName, position, offset);
@@ -363,6 +328,7 @@ public class File0LogSegment extends AbstractSegment {
     }
 
     @Override
+    // TODO close when all writes complete.
     public synchronized void close() throws IOException {
         if (isClosed()) return;
         logger.info("Closing segment [{}]", id());
@@ -375,19 +341,25 @@ public class File0LogSegment extends AbstractSegment {
         indexWriteFileChannel = null;
         indexReadFileChannel.close();
         indexReadFileChannel = null;
-
-        metaFileChannel.close();
-        metaFileChannel = null;
     }
 
     @Override
-    public synchronized void closeWrite() throws IOException {
-        if (logWriteFileChannel != null) {
-            logWriteFileChannel.close();
-            logWriteFileChannel = null;
-            indexWriteFileChannel.close();
-            indexWriteFileChannel = null;
-        }
+    public void closeWrite() throws IOException {
+        /*new Thread(() -> {
+            try {
+                lock.lockInterruptibly();
+                if (logWriteFileChannel != null) {
+                    logWriteFileChannel.close();
+                    logWriteFileChannel = null;
+                    indexWriteFileChannel.close();
+                    indexWriteFileChannel = null;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                lock.unlock();
+            }
+        }).start();*/
     }
 
     @Override
@@ -399,7 +371,6 @@ public class File0LogSegment extends AbstractSegment {
     public void delete() {
         logFile.delete();
         indexFile.delete();
-        metadataFile.delete();
     }
 
 
@@ -407,21 +378,21 @@ public class File0LogSegment extends AbstractSegment {
      * Compacts segment.
      */
     @Override
-    // TODO rework and use same write channel.
     // TODO may be have a changes threshold to optimize at.
     // TODO try compacting on low space left too.
     public void compact() {
 
-        if (this.id() != log().segment().id()) {
-            try (FileLock fl = metaFileChannel.tryLock()) {
-                if (fl != null && log().lastSegment().id() > id()) {
-                    lock.lock();
+        if (this.id() != log().segment().id() && indexWriteFileChannel == null) {
+            try (FileChannel indexWriteFileChannel = FileChannel.open(indexFile.toPath(), WRITE)) {
+                lock.lockInterruptibly();
+                FileLock fl = indexWriteFileChannel.tryLock();
+                if (fl != null) {
                     long start = System.currentTimeMillis();
                     FileChannel index = indexReadFileChannel;
                     FileChannel dataLog = logReadFileChannel;
                     long oldSize = dataLog.size();
-                    try (FileChannel indexWriteFileChannel = FileChannel.open(indexFile.toPath(), WRITE);
-                         FileChannel logWriteFileChannel = FileChannel.open(logFile.toPath(), WRITE)) {
+                    try (
+                            FileChannel logWriteFileChannel = FileChannel.open(logFile.toPath(), WRITE)) {
                         ByteBuffer ibb = indexBuffer.get();
                         ByteBuffer bb = ByteBuffer.allocate((int) index.size());
                         long bytesRead = index.read(bb);
@@ -464,6 +435,8 @@ public class File0LogSegment extends AbstractSegment {
                 }
             } catch (IOException ioe) {
                 logger.error(String.format("Failed to compact segment %s due to an error.", fullName), ioe);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             } finally {
                 if (lock.isHeldByCurrentThread()) {
                     lock.unlock();

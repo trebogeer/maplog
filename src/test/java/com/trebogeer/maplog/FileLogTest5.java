@@ -19,6 +19,8 @@ import static com.trebogeer.maplog.TestUtils.utlogger;
 import static com.trebogeer.maplog.TestUtils.work_size_per_worker;
 
 /**
+ * Batched concurrent write test
+ *
  * @author dimav
  *         Date: 4/2/15
  *         Time: 12:54 PM
@@ -70,7 +72,7 @@ public class FileLogTest5 {
                         bb.put(data);
 
                         bb.rewind();
-                        entryMap.put(String.format(key_template, i).getBytes(), new Loggable.Entry(bb, (byte) 7));
+                        entryMap.put((key_template + i).getBytes(), new Loggable.Entry(bb, (byte) 7));
                         if (entryMap.size() == 25) {
 
                             try {

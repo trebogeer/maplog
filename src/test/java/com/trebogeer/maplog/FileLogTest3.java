@@ -72,7 +72,7 @@ public class FileLogTest3 {
 
                         bb.rewind();
                         try {
-                            fileLog.appendEntry(bb, String.format(key_template, i).getBytes(), (byte) 6);
+                            fileLog.appendEntry(bb, (key_template + i).getBytes(), (byte) 6);
                         } catch (IOException e) {
                             e.printStackTrace();
                         }

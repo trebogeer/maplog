@@ -27,12 +27,6 @@ public interface Segment extends Loggable, Serializable {
      */
     short id();
 
-    /**
-     * Returns the segment timestamp.
-     *
-     * @return The segment timestamp.
-     */
-    long timestamp();
 
     ByteBuffer getEntry(long k, Value v) throws IOException;
 

@@ -28,7 +28,7 @@ public class LogConfig {
     private boolean flushOnWrite = System.getProperty(LOG_FLUSH_ON_WRITE) == null || Boolean.getBoolean(LOG_FLUSH_ON_WRITE);
     private boolean mertics = System.getProperty(LOG_METRICS) == null || Boolean.getBoolean(LOG_METRICS);
     private Supplier<Hash> hashSupplier = MurMur3.murmur3();
-    private Checksum checksum = Checksums.adler32();
+    private Checksum checksum = Checksums.crc32();
 
     public LogConfig(LogConfig other) {
         this.segmentSize = other.segmentSize;

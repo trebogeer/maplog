@@ -19,11 +19,6 @@ public class LockingLogSegment extends File0LogSegment {
     }
 
     @Override
-    public synchronized void open() throws IOException {
-        super.open();
-    }
-
-    @Override
     public byte[] appendEntry(ByteBuffer entry, byte[] index, byte flags) {
         assertIsOpen();
         entry.rewind();
@@ -90,6 +85,7 @@ public class LockingLogSegment extends File0LogSegment {
 
                     int size;
                     size = (int) logWriteFileChannel.write(new ByteBuffer[]{crcAndSize, buffer});
+                    assert size == (s + Constants.CRC_AND_SIZE);
                     position = position + size;
                     maxSeenPosition.set(position);
                     storePosition(entry.getKey(), position - size, size, value.getMeta());

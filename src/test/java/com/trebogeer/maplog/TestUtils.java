@@ -3,6 +3,7 @@ package com.trebogeer.maplog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -23,14 +24,14 @@ public final class TestUtils {
     static final Logger utlogger = LoggerFactory.getLogger("UNIT.TEST");
 
 
-    static int total_workers = 4;
-    static int work_size_per_worker = 10000;
+    static int total_workers = 8;
+    static int work_size_per_worker = 5000;
     static long segment_size = 2 * 1024 * 1024 * 1024L;
     static final String test_image = "/48060-high-res-ship.jpg";
 
     public static final int BUFFER = 0x2000;
 
-    static final String key_template = "nisp_ghyu_5012%d?hei=624&wid=624&op_sharpen=1";
+    static final String key_template = "nisp_ghyu_5012_?hei=624&wid=624&op_sharpen=1__";
 
     private TestUtils() {
     }
@@ -65,6 +66,30 @@ public final class TestUtils {
 
         });
 
+    }
+
+    public static byte[] get1mbImage() {
+        InputStream fis = TestUtils.class.getResourceAsStream("/48060-high-res-ship.jpg");
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try {
+            TestUtils.pipe(fis, baos);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return baos.toByteArray();
+    }
+
+    public static byte[] get30KBImage() {
+        InputStream fis = TestUtils.class.getResourceAsStream("/image");
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try {
+            TestUtils.pipe(fis, baos);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return baos.toByteArray();
     }
 
 }
