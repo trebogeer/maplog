@@ -18,8 +18,8 @@ public class LockTest {
 
     public static void main(String... agrs) {
         try (FileChannel fileChannel = FileChannel.open(Paths.get("/tmp/lock_test_1"), CREATE, READ, WRITE);
-             /*FileLock fl = fileChannel.tryLock()*/) {
-            System.out.println(fileChannel == null ? "Failed" : "Locked");
+             FileLock fl = fileChannel.tryLock()) {
+            System.out.println(fl == null ? "Failed" : "Locked");
         } catch (IOException e) {
             e.printStackTrace();
         }

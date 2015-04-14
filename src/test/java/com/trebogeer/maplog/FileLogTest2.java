@@ -9,6 +9,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static com.trebogeer.maplog.TestUtils.file_log_base;
 import static com.trebogeer.maplog.TestUtils.key_template;
 import static com.trebogeer.maplog.TestUtils.test_image;
 import static com.trebogeer.maplog.TestUtils.total_workers;
@@ -39,7 +40,7 @@ public class FileLogTest2 {
         byte[] image = baos.toByteArray();
 
         int crc = Utils.crc32_t(image);
-        try (FileLog fileLog = new FileLog("images1", new FileLogConfig().withDirectory(path))) {
+        try (FileLog fileLog = new FileLog(file_log_base, new FileLogConfig().withDirectory(path))) {
             fileLog.open();
             int tasks = 100;
             final CountDownLatch countDownLatch = new CountDownLatch(tasks);

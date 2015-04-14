@@ -1,12 +1,9 @@
 package com.trebogeer.maplog;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 
-import static com.trebogeer.maplog.TestUtils.key_template;
 import static com.trebogeer.maplog.TestUtils.segment_size;
 import static com.trebogeer.maplog.TestUtils.utlogger;
 
@@ -21,38 +18,24 @@ public class CompactionTest {
 
 
         String path = System.getProperty("user.home") + File.separator + /*"tmp"*/"nfsshare" + File.separator;
-        InputStream fis = FileLogTest1.class.getResourceAsStream("/image");
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try {
-            TestUtils.pipe(fis, baos);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        byte[] image = baos.toByteArray();
+        byte[] image = TestUtils.get1mbImage();
 
 
         FileLogConfig cfg = new FileLogConfig().withDirectory(path)
                 .withFlushOnWrite(true).withFileLocks(true).withSegmentSize(segment_size);
-        try (FileLog fileLog = new FileLog("images0", cfg)) {
+        try (FileLog fileLog = new FileLog(TestUtils.file_log_base, cfg)) {
             fileLog.open();
-
-            for (int a = 0; a < 2; a++) {
+            ByteBuffer bb = ByteBuffer.wrap(image);
+            for (int a = 0; a < 5; a++) {
                 for (int i = 0; i < segment_size / image.length / 2 + 100; i++) {
-                    int l = image.length;
-                    ByteBuffer bb = ByteBuffer.allocate(l);
-                    bb.put(image);
                     bb.rewind();
-                    fileLog.appendEntry(bb, String.format(key_template, i).getBytes(), (byte) 6);
+                    fileLog.appendEntry(bb, (TestUtils.key_template + i).getBytes(), (byte) 6);
                 }
             }
 
-            fileLog.firstSegment().compact();
+          //  fileLog.compact();
         } catch (IOException e) {
             utlogger.error("IO", e);
         }
-
-
     }
-
-
 }

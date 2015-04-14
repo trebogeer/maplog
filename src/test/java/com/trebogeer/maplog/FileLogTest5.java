@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static com.trebogeer.maplog.TestUtils.file_log_base;
 import static com.trebogeer.maplog.TestUtils.key_template;
 import static com.trebogeer.maplog.TestUtils.segment_size;
 import static com.trebogeer.maplog.TestUtils.total_workers;
@@ -51,7 +52,7 @@ public class FileLogTest5 {
 
         FileLogConfig cfg = new FileLogConfig().withDirectory(path)
                 .withFlushOnWrite(true).withFileLocks(true).withSegmentSize(segment_size);
-        try (FileLog fileLog = new FileLog("images1", cfg)) {
+        try (FileLog fileLog = new FileLog(file_log_base, cfg)) {
             fileLog.open();
             CountDownLatch latch = new CountDownLatch(t_w);
             for (int ii = 0; ii < t_w; ii++) {
@@ -60,17 +61,9 @@ public class FileLogTest5 {
                 es.execute(() -> {
                     long start = System.currentTimeMillis();
                     Map<byte[], Loggable.Entry> entryMap = new HashMap<>();
+
                     for (int i = a * chunk; i < (a * chunk) + chunk; i++) {
-
-                        byte data[] = image;
-                        //   byte data[] = s.getBytes();
-                        int l = data.length;
-
-                        // int totalSize = 4 + l;
-                        ByteBuffer bb = ByteBuffer.allocate(l);
-                        //bb.putInt(l);
-                        bb.put(data);
-
+                        ByteBuffer bb = ByteBuffer.wrap(image);
                         bb.rewind();
                         entryMap.put((key_template + i).getBytes(), new Loggable.Entry(bb, (byte) 7));
                         if (entryMap.size() == 25) {

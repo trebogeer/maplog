@@ -51,7 +51,7 @@ public class FileLogTest3 {
 
         FileLogConfig cfg = new FileLogConfig().withDirectory(path)
                 .withFlushOnWrite(true).withFileLocks(true).withSegmentSize(segment_size);
-        try (FileLog fileLog = new FileLog("images1", cfg)) {
+        try (FileLog fileLog = new FileLog(TestUtils.file_log_base, cfg)) {
             fileLog.open();
             CountDownLatch latch = new CountDownLatch(t_w);
             for (int ii = 0; ii < t_w; ii++) {
@@ -59,17 +59,8 @@ public class FileLogTest3 {
                 final int a = ii;
                 es.execute(() -> {
                     long start = System.currentTimeMillis();
-
+                    ByteBuffer bb = ByteBuffer.wrap(image);
                     for (int i = a * chunk; i < (a * chunk) + chunk; i++) {
-                        byte data[] = image;
-                        //   byte data[] = s.getBytes();
-                        int l = data.length;
-
-                       // int totalSize = 4 + l;
-                        ByteBuffer bb = ByteBuffer.allocate(l);
-                        //bb.putInt(l);
-                        bb.put(data);
-
                         bb.rewind();
                         try {
                             fileLog.appendEntry(bb, (key_template + i).getBytes(), (byte) 6);

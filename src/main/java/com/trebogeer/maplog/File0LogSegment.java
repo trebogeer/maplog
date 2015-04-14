@@ -133,6 +133,9 @@ public class File0LogSegment extends AbstractSegment {
         if (indexFileSize > 0) {
             isEmpty = false;
         }
+        if (dataLogSize >= log().config().getSegmentSize()) {
+            logger.info("");
+        }
     }
 
     @Override
@@ -332,19 +335,35 @@ public class File0LogSegment extends AbstractSegment {
     public synchronized void close() throws IOException {
         if (isClosed()) return;
         logger.info("Closing segment [{}]", id());
-        logWriteFileChannel.close();
-        logWriteFileChannel = null;
+        if (logWriteFileChannel != null) {
+            logWriteFileChannel.close();
+            logWriteFileChannel = null;
+            indexWriteFileChannel.close();
+            indexWriteFileChannel = null;
+        }
+
         logReadFileChannel.close();
         logReadFileChannel = null;
-
-        indexWriteFileChannel.close();
-        indexWriteFileChannel = null;
         indexReadFileChannel.close();
         indexReadFileChannel = null;
     }
 
     @Override
     public void closeWrite() throws IOException {
+        try {
+            lock.lockInterruptibly();
+            if (logWriteFileChannel != null) {
+                logWriteFileChannel.close();
+                logWriteFileChannel = null;
+                indexWriteFileChannel.close();
+                indexWriteFileChannel = null;
+            }
+            logger.info("Closed write channels for segment {}", fullName);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            lock.unlock();
+        }
         /*new Thread(() -> {
             try {
                 lock.lockInterruptibly();
@@ -382,7 +401,13 @@ public class File0LogSegment extends AbstractSegment {
     // TODO try compacting on low space left too.
     public void compact() {
 
-        if (this.id() != log().segment().id() && indexWriteFileChannel == null) {
+        if (this.id() != log().segment().id() /*&& indexWriteFileChannel == null*/) {
+            try {
+                closeWrite();
+            } catch (IOException e) {
+                logger.error("IO", e);
+                return;
+            }
             try (FileChannel indexWriteFileChannel = FileChannel.open(indexFile.toPath(), WRITE)) {
                 lock.lockInterruptibly();
                 FileLock fl = indexWriteFileChannel.tryLock();
@@ -394,17 +419,21 @@ public class File0LogSegment extends AbstractSegment {
                     try (
                             FileChannel logWriteFileChannel = FileChannel.open(logFile.toPath(), WRITE)) {
                         ByteBuffer ibb = indexBuffer.get();
-                        ByteBuffer bb = ByteBuffer.allocate((int) index.size());
-                        long bytesRead = index.read(bb);
+                        int is = (int) index.size();
+                        ByteBuffer bb = ByteBuffer.allocate(is);
+                        index.read(bb);
                         long pos = 0;
-                        if (bytesRead > 0) {
+                        long indexEntries = 0;
+                        bb.rewind();
+                        if (bb.limit() > 0) {
                             while (bb.hasRemaining()) {
                                 try {
                                     Long key = bb.getLong();
                                     Value ov = new Value(bb.getLong(), bb.getInt(), id(), bb.get());
                                     long ts = bb.getLong();
-                                    boolean expired = System.currentTimeMillis() - bb.getLong() >= TimeUnit.DAYS.toMillis(10);
+                                    boolean expired = System.currentTimeMillis() - ts >= TimeUnit.DAYS.toMillis(10);
                                     Value cv = log().index().get(key);
+
                                     if (cv == null || !(cv.getSegmentId() > ov.getSegmentId()
                                             || ((cv.getSegmentId() == ov.getSegmentId())
                                             && cv.getPosition() > ov.getPosition()))) {
@@ -418,6 +447,7 @@ public class File0LogSegment extends AbstractSegment {
                                         logWriteFileChannel.transferFrom(dataLog, ov.getPosition(), ov.getOffset());
                                         indexWriteFileChannel.write(ibb);
                                         pos += ov.getOffset();
+                                        indexEntries++;
 
                                     } else if (ov.equals(cv) && expired) {
                                         // TODO compact expired
@@ -427,7 +457,9 @@ public class File0LogSegment extends AbstractSegment {
                                 }
                             }
                             logWriteFileChannel.truncate(pos);
-                            flush();
+                            indexWriteFileChannel.truncate(Constants.INDEX_ENTRY_SIZE * indexEntries);
+                            logWriteFileChannel.force(false);
+                            indexWriteFileChannel.force(false);
                         }
                         logger.info("Compacted segment {} in {} millis. {} -> {}", fullName, System.currentTimeMillis() - start, oldSize, pos);
                     }
@@ -501,5 +533,11 @@ public class File0LogSegment extends AbstractSegment {
                 fullName, (System.currentTimeMillis() - start));
     }
 
+    @Override
+    public String toString() {
+        return "File0LogSegment{" +
+                "fullName='" + fullName + '\'' +
+                '}';
+    }
 }
 

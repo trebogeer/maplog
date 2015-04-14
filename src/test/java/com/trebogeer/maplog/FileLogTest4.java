@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import static com.trebogeer.maplog.TestUtils.file_log_base;
 import static com.trebogeer.maplog.TestUtils.utlogger;
 
 /**
@@ -21,7 +22,7 @@ public class FileLogTest4 {
         String body = "yrtd_prod_501206901?hei=624&wid=624&op_sharpen=1";
         int crc = Utils.crc32_t(body.getBytes());
         ByteBuffer b = ByteBuffer.wrap(body.getBytes());
-        try (FileLog fileLog = new FileLog("images1", new FileLogConfig().withDirectory(path))) {
+        try (FileLog fileLog = new FileLog(file_log_base, new FileLogConfig().withDirectory(path))) {
             fileLog.open();
             for (int ii = 0; ii < 1; ii++) {
                 long start = System.currentTimeMillis();

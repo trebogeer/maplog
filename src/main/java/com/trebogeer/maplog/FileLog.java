@@ -92,7 +92,7 @@ public class FileLog extends AbstractLog {
             logger.info("Space available {} GB", partition.getUsableSpace() / 1024 / 1024 / 1024d);
         }
         for (File file : config.getDirectory().listFiles(File::isFile)) {
-            if (file.getName().startsWith(base.getName() + "-") && file.getName().endsWith(".metadata")) {
+            if (file.getName().startsWith(base.getName() + "-") && file.getName().endsWith(".index")) {
                 String st = file.getName().substring(file.getName().lastIndexOf('-') + 1);
                 short id = Short.valueOf(st.substring(0, st.lastIndexOf('.')));
                 if (!segments.containsKey(id)) {
@@ -154,6 +154,7 @@ public class FileLog extends AbstractLog {
         private final long interval;
         private final TimeUnit tu;
         private volatile boolean stop = false;
+        private volatile boolean forceCompact = false;
 
         public CompactionScheduler(FileLog fl, long interval, TimeUnit tu) {
             this.fl = fl;
@@ -166,15 +167,18 @@ public class FileLog extends AbstractLog {
             {
                 try {
 
-                    Thread.sleep(SECONDS.toMillis(10));
+                    Thread.sleep(SECONDS.toMillis(30));
 
                     while (true) {
                         fl.compact();
+                        forceCompact = false;
                         long nextRun = System.currentTimeMillis() + tu.toMillis(interval);
                         long time = System.currentTimeMillis();
                         while (time < nextRun) {
 
-                            if (stop) {
+                            if (forceCompact) {
+                                break;
+                            } else if (stop) {
                                 return;
                             } else {
                                 Thread.sleep(SECONDS.toMillis(5));
@@ -194,6 +198,10 @@ public class FileLog extends AbstractLog {
 
         public synchronized void shutdown() {
             this.stop = true;
+        }
+
+        public synchronized void force() {
+            this.forceCompact = true;
         }
     }
 }

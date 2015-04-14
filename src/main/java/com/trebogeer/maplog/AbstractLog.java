@@ -20,6 +20,7 @@ import java.util.NavigableMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -231,6 +232,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     }
 
     @Override
+    // TODO optimize locks on in the update path
     public byte[] appendEntry(ByteBuffer entry, byte[] index, byte flags) throws IOException {
         long s = System.nanoTime();
         assertIsOpen();
@@ -297,7 +299,8 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     }
 
     @Override
-    // TODO this needs to be optimized. may be rollover in advance as it's quite heavy.
+    // TODO this needs to be optimized.
+    // TODO currentSegment.closeWrite() is unsafe to call. Need to complete all pending writes first.
     public synchronized void rollOver() throws IOException {
 
         if (currentSegment == null || currentSegment.isEmpty())
@@ -312,7 +315,6 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
                 if (!currentSegment.isEmpty()) {
                     currentSegment.flush();
                 }
-
                 currentSegment.closeWrite();
 
                 short newSegmentId = ++nextSegmentId;

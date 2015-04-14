@@ -23,10 +23,10 @@ public final class TestUtils {
 
     static final Logger utlogger = LoggerFactory.getLogger("UNIT.TEST");
 
-
+    static final String file_log_base = "image1";
     static int total_workers = 8;
     static int work_size_per_worker = 5000;
-    static long segment_size = 2 * 1024 * 1024 * 1024L;
+    static long segment_size = /*2 * 1024 */128 * 1024 * 1024L;
     static final String test_image = "/48060-high-res-ship.jpg";
 
     public static final int BUFFER = 0x2000;
@@ -82,6 +82,18 @@ public final class TestUtils {
 
     public static byte[] get30KBImage() {
         InputStream fis = TestUtils.class.getResourceAsStream("/image");
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try {
+            TestUtils.pipe(fis, baos);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return baos.toByteArray();
+    }
+
+    public static byte[] get30MBImage() {
+        InputStream fis = TestUtils.class.getResourceAsStream("/Crevisio-0193-A-Demain-Fontvieille-Reloaded-Ultra-High-Resolution-Free.jpg");
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try {
             TestUtils.pipe(fis, baos);
