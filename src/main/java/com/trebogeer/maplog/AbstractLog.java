@@ -20,7 +20,6 @@ import java.util.NavigableMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -42,18 +41,17 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     // TODO move to config
     private static final String jmx_tld = System.getProperty("jlog.jmx.tld", "jlog.monitor");
 
-    public static final MetricRegistry REGISTRY = new MetricRegistry();
+    private static final MetricRegistry REGISTRY = new MetricRegistry();
     private static final JmxReporter reporter = JmxReporter.forRegistry(REGISTRY).inDomain(jmx_tld).build();
     private static final Slf4jReporter sl4jreproter = Slf4jReporter.forRegistry(REGISTRY).convertDurationsTo(TimeUnit.MICROSECONDS).outputTo(logger).convertRatesTo(TimeUnit.SECONDS).build();
     private static com.codahale.metrics.Timer writes = REGISTRY.timer("jlog.writes");
     private static com.codahale.metrics.Timer reads = REGISTRY.timer("jlog.reads");
 
     private LogConfig config;
-    // protected final TreeMap<Short, Segment> segments = new TreeMap<>();
-    protected final ConcurrentSkipListMap<Short, Segment> segments = new ConcurrentSkipListMap<>();
+    protected final ConcurrentSkipListMap<Integer, Segment> segments = new ConcurrentSkipListMap<>();
     protected final Map<Long, Value> index = new ConcurrentHashMap<>();
     protected Segment currentSegment;
-    private short nextSegmentId;
+    private int nextSegmentId;
     private long lastFlush;
     protected String name;
     protected final Hash hash;
@@ -93,13 +91,13 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
      * @param segmentId The log segment id.
      * @return A new log segment.
      */
-    protected abstract Segment createSegment(short segmentId);
+    protected abstract Segment createSegment(int segmentId);
 
     /**
      * Returns a collection of log segments.
      */
     @Override
-    public NavigableMap<Short, Segment> segments() {
+    public NavigableMap<Integer, Segment> segments() {
         return segments;
     }
 
@@ -117,10 +115,10 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
      * @throws IndexOutOfBoundsException if no segment exists for the {@code index}
      */
     @Override
-    public Segment segment(short index) {
+    public Segment segment(int index) {
         assertIsOpen();
-        Map.Entry<Short, Segment> segment = segments.floorEntry(index);
-        return segment.getValue();
+        Map.Entry<Integer, Segment> segment = segments.floorEntry(index);
+        return segment == null ? null : segment.getValue();
     }
 
     /**
@@ -129,7 +127,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     @Override
     public Segment firstSegment() {
         assertIsOpen();
-        Map.Entry<Short, Segment> segment = segments.firstEntry();
+        Map.Entry<Integer, Segment> segment = segments.firstEntry();
         return segment != null ? segment.getValue() : null;
     }
 
@@ -139,7 +137,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     @Override
     public Segment lastSegment() {
         assertIsOpen();
-        Map.Entry<Short, Segment> segment = segments.lastEntry();
+        Map.Entry<Integer, Segment> segment = segments.lastEntry();
         return segment != null ? segment.getValue() : null;
     }
 
@@ -158,8 +156,8 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
         // Setting concurrency level to one for now.
         ExecutorService es = Executors.newFixedThreadPool(/*Runtime.getRuntime().availableProcessors()*/1);
         // Load existing log segments from disk.
-        Map<Short, Segment> syncSegments = Collections.synchronizedMap(segments);
-        List<Callable<Short>> callables = new LinkedList<>();
+        Map<Integer, Segment> syncSegments = Collections.synchronizedMap(segments);
+        List<Callable<Integer>> callables = new LinkedList<>();
         for (Segment segment : loadSegments()) {
             callables.add(() -> {
                 segment.open();
@@ -170,7 +168,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
 
         try {
 
-            List<Future<Short>> futures = es.invokeAll(callables);
+            List<Future<Integer>> futures = es.invokeAll(callables);
             es.shutdown();
             if (!es.awaitTermination(10, TimeUnit.MINUTES)) {
                 es.shutdownNow();
@@ -178,7 +176,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
                 throw new LogException("Failed to open segments within 5 minutes.");
             }
 
-            for (Future<Short> res : futures) {
+            for (Future<Integer> res : futures) {
                 try {
                     res.get();
                 } catch (ExecutionException ee) {
@@ -317,7 +315,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
                 }
                 currentSegment.closeWrite();
 
-                short newSegmentId = ++nextSegmentId;
+                int newSegmentId = ++nextSegmentId;
 
                 currentSegment = createSegment(newSegmentId);
                 logger.info("Rolling over to new segment {}, total entries {}",
@@ -343,7 +341,7 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     @Override
     // TODO employ bloom filter to check if compaction is needed at all?
     public void compact() throws IOException {
-        for (Map.Entry<Short, Segment> entry : segments.entrySet()) {
+        for (Map.Entry<Integer, Segment> entry : segments.entrySet()) {
             Segment segment = entry.getValue();
             if (segment != null && segment.id() != currentSegment.id()) {
                 segment.compact();
@@ -402,7 +400,17 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
     private void createInitialSegment() throws IOException {
         currentSegment = createSegment(++nextSegmentId);
         currentSegment.open();
-        segments.put((short) 1, currentSegment);
+        segments.put(1, currentSegment);
+    }
+
+    /**
+     * Removes segment from log.
+     *
+     * @param index id to remove
+     */
+    @Override
+    public Segment remove(int index) {
+        return segments.remove(index);
     }
 
     /**

@@ -13,9 +13,9 @@ public class Value implements Serializable {
     final long position;
     final int offset;
     final byte flags;
-    final short segmentId;
+    final int segmentId;
 
-    public Value(long position, int offset, short segmentId, byte flags) {
+    public Value(long position, int offset, int segmentId, byte flags) {
         this.position = position;
         this.offset = offset;
         this.flags = flags;
@@ -34,7 +34,7 @@ public class Value implements Serializable {
         return flags;
     }
 
-    public short getSegmentId() {
+    public int getSegmentId() {
         return segmentId;
     }
 

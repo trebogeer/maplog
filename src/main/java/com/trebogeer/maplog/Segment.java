@@ -25,7 +25,7 @@ public interface Segment extends Loggable, Serializable {
      *
      * @return the segment id.
      */
-    short id();
+    int id();
 
 
     ByteBuffer getEntry(long k, Value v) throws IOException;

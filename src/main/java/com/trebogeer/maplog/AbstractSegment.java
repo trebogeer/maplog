@@ -9,19 +9,19 @@ import java.util.Comparator;
  */
 public abstract class AbstractSegment implements Segment, Comparator<AbstractSegment> {
 
-    protected final short id;
+    protected final int id;
 
-    protected AbstractSegment(short id) {
+    protected AbstractSegment(int id) {
         this.id = id;
     }
 
     @Override
     public int compare(AbstractSegment a, AbstractSegment b) {
-        return Long.compare(a.id, b.id);
+        return Integer.compare(a.id, b.id);
     }
 
     @Override
-    public short id() {
+    public int id() {
         return id;
     }
 

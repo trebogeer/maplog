@@ -14,39 +14,42 @@ import java.util.Map;
  */
 public class LockingLogSegment extends File0LogSegment {
 
-    LockingLogSegment(FileLog log, short id) {
+    LockingLogSegment(FileLog log, int id) {
         super(log, id);
     }
 
     @Override
     public byte[] appendEntry(ByteBuffer entry, byte[] index, byte flags) {
-        assertIsOpen();
-        entry.rewind();
-        int checksum = log().checksum().checksum(entry);
-        long s = entry.limit() - entry.position();
-        ByteBuffer chsAndSize = crc_and_size.get();
-        chsAndSize.putLong(s).putInt(checksum);
-        chsAndSize.rewind();
-        lock.lock();
-        // TODO see if locking a region helps anyhow
-        // TODO see if locking a region of a specific entry possible and helps
-        try (FileLock fl = logWriteFileChannel.lock();
-             FileLock il = indexWriteFileChannel.lock()) {
+        try {
+            openWriteChannels();
             entry.rewind();
-            int size;
-            long p;
+            int checksum = log().checksum().checksum(entry);
+            long s = entry.limit() - entry.position();
+            ByteBuffer chsAndSize = crc_and_size.get();
+            chsAndSize.putLong(s).putInt(checksum);
+            chsAndSize.rewind();
+            lock.lock();
+            // TODO see if locking a region helps anyhow
+            // TODO see if locking a region of a specific entry possible and helps
+            try (FileLock fl = logWriteFileChannel.lock();
+                 FileLock il = indexWriteFileChannel.lock()) {
+                entry.rewind();
+                int size;
+                long p;
 
-            size = (int) logWriteFileChannel.write(new ByteBuffer[]{chsAndSize, entry});
-            p = logWriteFileChannel.position();
-            maxSeenPosition.set(p);
-            storePosition(index, p - size, size, flags);
+                size = (int) logWriteFileChannel.write(new ByteBuffer[]{chsAndSize, entry});
+                p = logWriteFileChannel.position();
+                maxSeenPosition.set(p);
+                storePosition(index, p - size, size, flags);
 
-            isEmpty = false;
-            flush();
+                isEmpty = false;
+                flush();
+            }
         } catch (IOException e) {
             throw new LogException("error appending entry", e);
         } finally {
-            lock.unlock();
+            if (lock.isHeldByCurrentThread())
+                lock.unlock();
         }
         return index;
     }
@@ -65,41 +68,44 @@ public class LockingLogSegment extends File0LogSegment {
     // TODO publish keys after they are flushed on disk
     public List<byte[]> appendEntries(Map<byte[], Entry> entries) throws IOException {
         if (entries == null || entries.isEmpty()) return null;
-        assertIsOpen();
-        lock.lock();
         List<byte[]> keys = new LinkedList<>();
-        try (FileLock fl = logWriteFileChannel.lock();
-             FileLock il = indexWriteFileChannel.lock()) {
-            long position = logWriteFileChannel.position();
-            for (Map.Entry<byte[], Entry> entry : entries.entrySet()) {
-                Entry value;
-                if (entry != null && (value = entry.getValue()) != null && entry.getKey() != null) {
-                    ByteBuffer buffer = value.getEntry();
-                    buffer.rewind();
+        try {
+            openWriteChannels();
+            lock.lock();
+            try (FileLock fl = logWriteFileChannel.lock();
+                 FileLock il = indexWriteFileChannel.lock()) {
+                long position = logWriteFileChannel.position();
+                for (Map.Entry<byte[], Entry> entry : entries.entrySet()) {
+                    Entry value;
+                    if (entry != null && (value = entry.getValue()) != null && entry.getKey() != null) {
+                        ByteBuffer buffer = value.getEntry();
+                        buffer.rewind();
 
-                    int checksum = log().checksum().checksum(buffer);
-                    long s = buffer.limit() - buffer.position();
-                    ByteBuffer crcAndSize = crc_and_size.get();
-                    crcAndSize.putLong(s).putInt(checksum);
-                    crcAndSize.rewind();
+                        int checksum = log().checksum().checksum(buffer);
+                        long s = buffer.limit() - buffer.position();
+                        ByteBuffer crcAndSize = crc_and_size.get();
+                        crcAndSize.putLong(s).putInt(checksum);
+                        crcAndSize.rewind();
 
-                    int size;
-                    size = (int) logWriteFileChannel.write(new ByteBuffer[]{crcAndSize, buffer});
-                    assert size == (s + Constants.CRC_AND_SIZE);
-                    position = position + size;
-                    maxSeenPosition.set(position);
-                    storePosition(entry.getKey(), position - size, size, value.getMeta());
-                    isEmpty = false;
+                        int size;
+                        size = (int) logWriteFileChannel.write(new ByteBuffer[]{crcAndSize, buffer});
+                        assert size == (s + Constants.CRC_AND_SIZE);
+                        position = position + size;
+                        maxSeenPosition.set(position);
+                        storePosition(entry.getKey(), position - size, size, value.getMeta());
+                        isEmpty = false;
 
-                    keys.add(entry.getKey());
+                        keys.add(entry.getKey());
+                    }
                 }
+                flush();
             }
-            flush();
         } catch (IOException e) {
             logger.error("Error appending entries: ", e);
             throw e;
         } finally {
-            lock.unlock();
+            if (lock.isHeldByCurrentThread())
+                lock.unlock();
         }
         return keys;
     }

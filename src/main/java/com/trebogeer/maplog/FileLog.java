@@ -8,6 +8,8 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.FileStore;
+import java.nio.file.Files;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -35,7 +37,7 @@ public class FileLog extends AbstractLog {
 
     final FileLogConfig config;
     final File base;
-    File partition = null;
+    FileStore partition = null;
     final ExecutorService catchUp;
     final ExecutorService compact;
     final FileWatcher fileWatcher;
@@ -57,44 +59,54 @@ public class FileLog extends AbstractLog {
      * Works only on linux. Retrieving mounts, resolving symlinks, trying to match by path segments.
      */
     private void initPartitionInfo() {
-        // TODO switch to FileStore instead
-        if (isLinux()) {
-            File info = new File("/proc/mounts");
-            if (info.exists()) {
-                try (FileReader fr = new FileReader(info); BufferedReader br = new BufferedReader(fr)) {
-                    String s;
-                    TreeSet<String> mounts = new TreeSet<>((o1, o2) -> o1.length() > o2.length() ? -1 : 1);
-                    while ((s = br.readLine()) != null) {
-                        s = s.split(" ")[1];
-                        if (s != null) {
-                            mounts.add(s);
-                        }
-                    }
-                    for (String m : mounts) {
-                        if (base.getCanonicalPath().startsWith(m)) {
-                            partition = new File(m);
-                            break;
-                        }
-                    }
-                } catch (IOException e) {
-                    logger.error("Error reading /proc/mounts.", e);
-                }
-            }
+        try {
+            FileStore fs = Files.getFileStore(base.getCanonicalFile().getParentFile().toPath());
+            partition = fs;
+        } catch (IOException e) {
+            logger.warn("Failed to init file store info. Space consumption will not be monitored", e);
         }
+        // TODO switch to FileStore instead
+//        if (isLinux()) {
+//            File info = new File("/proc/mounts");
+//            if (info.exists()) {
+//                try (FileReader fr = new FileReader(info); BufferedReader br = new BufferedReader(fr)) {
+//                    String s;
+//                    TreeSet<String> mounts = new TreeSet<>((o1, o2) -> o1.length() > o2.length() ? -1 : 1);
+//                    while ((s = br.readLine()) != null) {
+//                        s = s.split(" ")[1];
+//                        if (s != null) {
+//                            mounts.add(s);
+//                        }
+//                    }
+//                    for (String m : mounts) {
+//                        if (base.getCanonicalPath().startsWith(m)) {
+//                            partition = new File(m);
+//                            break;
+//                        }
+//                    }
+//                } catch (IOException e) {
+//                    logger.warn("Error reading /proc/mounts.", e);
+//                }
+//            }
+//        }
     }
 
     @Override
     protected Collection<Segment> loadSegments() {
-        Map<Short, Segment> segments = new HashMap<>();
+        Map<Integer, Segment> segments = new HashMap<>();
         base.getAbsoluteFile().getParentFile().mkdirs();
         logger.info("Logging data to {}.", name);
         if (partition != null) {
-            logger.info("Space available {} GB", partition.getUsableSpace() / 1024 / 1024 / 1024d);
+            try {
+                logger.info("Space available {} GB", partition.getUsableSpace() / 1024 / 1024 / 1024d);
+            } catch (IOException e) {
+                logger.warn("Failed to get usable space from file system.", e);
+            }
         }
         for (File file : config.getDirectory().listFiles(File::isFile)) {
             if (file.getName().startsWith(base.getName() + "-") && file.getName().endsWith(".index")) {
                 String st = file.getName().substring(file.getName().lastIndexOf('-') + 1);
-                short id = Short.valueOf(st.substring(0, st.lastIndexOf('.')));
+                int id = Integer.valueOf(st.substring(0, st.lastIndexOf('.')));
                 if (!segments.containsKey(id)) {
                     segments.put(id, createSegment(id));
                 }
@@ -104,16 +116,20 @@ public class FileLog extends AbstractLog {
     }
 
     @Override
-    protected Segment createSegment(short segmentId) {
+    protected Segment createSegment(int segmentId) {
         return config.isLockFiles() ? new LockingLogSegment(this, segmentId) : new File0LogSegment(this, segmentId);
     }
 
     @Override
     protected boolean checkSpaceAvailable() {
-        if (partition != null) {
-            long usable = partition.getUsableSpace();
-            return usable > 0 &&
-                    usable / (double) partition.getTotalSpace() > config.getStopWritesAtPercent() / 100f;
+        try {
+            if (partition != null) {
+                long usable = partition.getUsableSpace();
+                return usable > 0 &&
+                        usable / (double) partition.getTotalSpace() > config.getStopWritesAtPercent() / 100f;
+            }
+        } catch (IOException e) {
+            logger.warn("Failed to get usable space from file system.", e);
         }
         return true;
     }

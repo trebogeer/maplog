@@ -29,7 +29,7 @@ public interface Log<K> extends Serializable {
      *
      * @return A map of segments in the log.
      */
-    NavigableMap<Short, Segment> segments();
+    NavigableMap<Integer, Segment> segments();
 
     /**
      * Returns the current log segment.
@@ -41,7 +41,12 @@ public interface Log<K> extends Serializable {
      *
      * @throws IndexOutOfBoundsException if no segment exists for the {@code index}
      */
-    Segment segment(short index);
+    Segment segment(int index);
+
+    /**
+     * Removes segment from log.
+     */
+    Segment remove(int index);
 
     /**
      * Returns the first log segment.
