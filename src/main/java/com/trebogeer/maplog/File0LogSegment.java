@@ -118,7 +118,7 @@ public class File0LogSegment extends AbstractSegment {
             lock.lock();
             if (isOpen()) return;
             openWriteChannels();
-            closeWriteChannels();
+           // closeWriteChannels();
             logReadFileChannel = FileChannel.open(this.logFile.toPath(), READ);
             indexReadFileChannel = FileChannel.open(this.indexFile.toPath(), READ);
 
@@ -418,7 +418,7 @@ public class File0LogSegment extends AbstractSegment {
     // TODO try compacting on low space left too.
     public void compact() {
 
-        if (this.id() != log().segment().id() && indexWriteFileChannel == null) {
+        if (this.id() != log().segment().id() /*&& indexWriteFileChannel == null*/) {
             try (FileChannel indexWriteFileChannel = FileChannel.open(indexFile.toPath(), WRITE)) {
                 if (lock.tryLock(5, TimeUnit.SECONDS)) {
                     // will get released on close, so not closing it explicitly

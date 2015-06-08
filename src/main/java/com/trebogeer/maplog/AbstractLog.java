@@ -309,7 +309,6 @@ public abstract class AbstractLog implements Loggable, Log<Long> {
         if (segmentSizeExceeded) {
             if (checkSpaceAvailable()) {
 
-                // If the current segment is empty then just remove it.
                 if (!currentSegment.isEmpty()) {
                     currentSegment.flush();
                 }
