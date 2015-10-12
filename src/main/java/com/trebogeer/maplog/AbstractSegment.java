@@ -1,6 +1,8 @@
 package com.trebogeer.maplog;
 
+import java.nio.ByteBuffer;
 import java.util.Comparator;
+import java.util.function.Function;
 
 /**
  * @author dimav
@@ -10,9 +12,15 @@ import java.util.Comparator;
 public abstract class AbstractSegment implements Segment, Comparator<AbstractSegment> {
 
     protected final int id;
+    protected Function<ByteBuffer, ByteBuffer> compactor = byteBuffer -> byteBuffer;
 
     protected AbstractSegment(int id) {
         this.id = id;
+    }
+
+    public AbstractSegment(int id, Function<ByteBuffer, ByteBuffer> compactor) {
+        this.id = id;
+        this.compactor = compactor;
     }
 
     @Override

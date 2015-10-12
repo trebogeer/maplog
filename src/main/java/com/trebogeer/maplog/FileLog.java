@@ -8,6 +8,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.FileStore;
 import java.nio.file.Files;
 import java.util.Collection;
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import static com.trebogeer.maplog.Utils.fixedThreadNamingExecutorService;
 import static com.trebogeer.maplog.Utils.isLinux;
@@ -42,6 +44,7 @@ public class FileLog extends AbstractLog {
     final ExecutorService compact;
     final FileWatcher fileWatcher;
     final CompactionScheduler compactionScheduler;
+    final Function<ByteBuffer, ByteBuffer> compactor;
 
     public FileLog(String name, FileLogConfig config) {
         super(config);
@@ -53,6 +56,7 @@ public class FileLog extends AbstractLog {
         this.fileWatcher = new FileWatcher(this, base.getAbsoluteFile().getParentFile().toPath(), true);
         // TODO move parameters to config
         this.compactionScheduler = new CompactionScheduler(this, 6, HOURS);
+        this.compactor = config.getCompactExpired();
     }
 
     /**
@@ -117,7 +121,7 @@ public class FileLog extends AbstractLog {
 
     @Override
     protected Segment createSegment(int segmentId) {
-        return config.isLockFiles() ? new LockingLogSegment(this, segmentId) : new File0LogSegment(this, segmentId);
+        return config.isLockFiles() ? new LockingLogSegment(this, segmentId, compactor) : new File0LogSegment(this, segmentId, compactor);
     }
 
     @Override

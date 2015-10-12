@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 
 import static com.trebogeer.maplog.Constants.CRC_AND_SIZE;
 import static com.trebogeer.maplog.Constants.INDEX_ENTRY_SIZE;
@@ -90,6 +91,12 @@ public class File0LogSegment extends AbstractSegment {
         this.fullName = log().name() + "/" + this.id;
     }
 
+
+    File0LogSegment(FileLog log, int id, Function<ByteBuffer, ByteBuffer> compactor) {
+        this(log, id);
+        this.compactor = compactor;
+    }
+
     @Override
     public Log<Long> log() {
         return log;
@@ -118,7 +125,7 @@ public class File0LogSegment extends AbstractSegment {
             lock.lock();
             if (isOpen()) return;
             openWriteChannels();
-           // closeWriteChannels();
+            // closeWriteChannels();
             logReadFileChannel = FileChannel.open(this.logFile.toPath(), READ);
             indexReadFileChannel = FileChannel.open(this.indexFile.toPath(), READ);
 
@@ -462,7 +469,23 @@ public class File0LogSegment extends AbstractSegment {
                                             indexEntries++;
 
                                         } else if (ov.equals(cv) && expired) {
-                                            // TODO compact expired
+
+                                            ByteBuffer toCompact = ByteBuffer.allocate(ov.getOffset());
+                                            dataLog.read(toCompact, ov.getPosition());
+                                            ByteBuffer compacted = compactor.apply(toCompact);
+
+                                            ibb.rewind();
+                                            ibb.putLong(key);
+                                            ibb.putLong(pos);
+                                            ibb.putInt(compacted.limit());
+                                            ibb.put(ov.getFlags());
+                                            ibb.putLong(ts);
+                                            ibb.rewind();
+
+                                            logWriteFileChannel.write(compacted);
+                                            indexWriteFileChannel.write(ibb);
+                                            pos += compacted.limit();
+                                            indexEntries++;
                                         }
                                     } catch (BufferUnderflowException bue) {
                                         logger.warn("Partial index entry found at {}.", fullName);

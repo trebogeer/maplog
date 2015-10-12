@@ -6,6 +6,7 @@ import java.nio.channels.FileLock;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * @author dimav
@@ -16,6 +17,10 @@ public class LockingLogSegment extends File0LogSegment {
 
     LockingLogSegment(FileLog log, int id) {
         super(log, id);
+    }
+
+    LockingLogSegment(FileLog log, int id, Function<ByteBuffer, ByteBuffer> compactor) {
+        super(log, id, compactor);
     }
 
     @Override
